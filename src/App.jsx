@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ZorroGallinaPrototype() {
+  const tableroRef = useRef(null);
+  const arrastreOrigenRef = useRef(null);
   const [turn, setTurn] = useState("gallinas");
   const [selected, setSelected] = useState(null);
   const [message, setMessage] = useState("Selecciona una gallina para moverla.");
@@ -219,6 +221,59 @@ export default function ZorroGallinaPrototype() {
       ? []
       : selectedMoves.map((m) => m.to);
 
+  const obtenerNodoCercanoDesdePunto = (punto) => {
+    const tablero = tableroRef.current;
+    if (!tablero) return null;
+
+    const rect = tablero.getBoundingClientRect();
+    const x = ((punto.x - rect.left) / rect.width) * 100;
+    const y = ((punto.y - rect.top) / rect.height) * 100;
+
+    let nodoMasCercano = null;
+    let distanciaMasCorta = Infinity;
+
+    nodes.forEach((nodo) => {
+      const distancia = Math.hypot(nodo.x - x, nodo.y - y);
+      if (distancia < distanciaMasCorta) {
+        distanciaMasCorta = distancia;
+        nodoMasCercano = nodo.id;
+      }
+    });
+
+    return distanciaMasCorta <= 8.5 ? nodoMasCercano : null;
+  };
+
+  const puedeArrastrarFicha = (id) => {
+    const ficha = pieceAt(id);
+    if (!ficha || winner || forcedPreview) return false;
+    if (capturingFox && id !== capturingFox) return false;
+    if (turn === "gallinas" && ficha !== "gallina") return false;
+    if (turn === "zorros" && ficha !== "zorro") return false;
+    return true;
+  };
+
+  const iniciarArrastre = (id) => {
+    if (!puedeArrastrarFicha(id)) return;
+    arrastreOrigenRef.current = id;
+    setSelected(id);
+    setMessage("Arrastra la ficha hasta una posición válida.");
+  };
+
+  const terminarArrastre = (info) => {
+    const origen = arrastreOrigenRef.current;
+    arrastreOrigenRef.current = null;
+    if (!origen) return;
+
+    const destino = obtenerNodoCercanoDesdePunto(info.point);
+    if (!destino || destino === origen) {
+      setSelected(null);
+      setMessage("Movimiento cancelado.");
+      return;
+    }
+
+    selectOrMove(destino, origen);
+  };
+
   const checkGallinaVictory = (nextHens) => {
     const hensInFarm = nextHens.filter((pos) => farmCells.includes(pos)).length;
     if (hensInFarm >= 9) {
@@ -291,11 +346,13 @@ export default function ZorroGallinaPrototype() {
     }, 1700);
   };
 
-  const selectOrMove = (id) => {
+  const selectOrMove = (id, selectedOverride = null) => {
     if (winner || forcedPreview) return;
     const piece = pieceAt(id);
+    const currentSelected = selectedOverride ?? selected;
+    const currentSelectedMoves = currentSelected ? getValidMoves(currentSelected) : [];
 
-    if (!selected) {
+    if (!currentSelected) {
       if (!piece) return setMessage("Primero selecciona una ficha.");
       if (capturingFox && id !== capturingFox) return setMessage("Ese zorro debe seguir comiendo si tiene otra captura consecutiva.");
       if (turn === "gallinas" && piece !== "gallina") return setMessage("Es turno de las gallinas.");
@@ -305,13 +362,13 @@ export default function ZorroGallinaPrototype() {
       return;
     }
 
-    if (selected === id) {
+    if (currentSelected === id) {
       setSelected(null);
       setMessage("Selección cancelada.");
       return;
     }
 
-    const move = selectedMoves.find((m) => m.to === id);
+    const move = currentSelectedMoves.find((m) => m.to === id);
 
     if (!move) {
       if (piece && ((turn === "gallinas" && piece === "gallina") || (turn === "zorros" && piece === "zorro"))) {
@@ -323,12 +380,12 @@ export default function ZorroGallinaPrototype() {
       return;
     }
 
-    const selectedPiece = pieceAt(selected);
+    const selectedPiece = pieceAt(currentSelected);
 
     if (selectedPiece === "gallina") {
-      const nextHens = hens.map((pos) => (pos === selected ? id : pos));
+      const nextHens = hens.map((pos) => (pos === currentSelected ? id : pos));
       setHens(nextHens);
-      setMovimientos((prev) => [`🐔 Gallina: ${selected} → ${id}`, ...prev].slice(0, 8));
+      setMovimientos((prev) => [`🐔 Gallina: ${currentSelected} → ${id}`, ...prev].slice(0, 8));
       setSelected(null);
       setCapturingFox(null);
       setRachaZorro(0);
@@ -342,7 +399,7 @@ export default function ZorroGallinaPrototype() {
 
     if (selectedPiece === "zorro") {
       const forcedCaptures = foxes.flatMap((fox) => getCaptureMovesForFox(fox).map((m) => ({ ...m, fox })));
-      const selectedFoxCapture = forcedCaptures.find((m) => m.fox === selected);
+      const selectedFoxCapture = forcedCaptures.find((m) => m.fox === currentSelected);
       const captureToShow = selectedFoxCapture || forcedCaptures[0];
 
       if (forcedCaptures.length > 0 && move.type !== "capture") {
@@ -350,7 +407,7 @@ export default function ZorroGallinaPrototype() {
         return;
       }
 
-      const nextFoxes = foxes.map((pos) => (pos === selected ? id : pos));
+      const nextFoxes = foxes.map((pos) => (pos === currentSelected ? id : pos));
 
       if (move.type === "capture") {
         const nextHens = hens.filter((pos) => pos !== move.over);
@@ -385,7 +442,7 @@ export default function ZorroGallinaPrototype() {
         setMessage("¡El zorro se comió una gallina! Ahora juegan las gallinas.");
       } else {
         setFoxes(nextFoxes);
-        setMovimientos((prev) => [`🦊 Zorro: ${selected} → ${id}`, ...prev].slice(0, 8));
+        setMovimientos((prev) => [`🦊 Zorro: ${currentSelected} → ${id}`, ...prev].slice(0, 8));
         setCapturingFox(null);
         setRachaZorro(0);
         setRachaGallinas(0);
@@ -442,7 +499,7 @@ export default function ZorroGallinaPrototype() {
   };
 
   return (
-    <div className="min-h-screen relative bg-[#100905] text-white flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+    <div className="h-[100dvh] sm:min-h-screen relative bg-[#100905] text-white flex items-start sm:items-center justify-center p-2 sm:p-5 overflow-hidden sm:overflow-auto">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_5%,rgba(255,173,64,.24),transparent_34%),radial-gradient(circle_at_85%_85%,rgba(99,255,68,.12),transparent_25%),linear-gradient(135deg,#1b0f08_0%,#080504_100%)]" />
       <div className="absolute inset-0 opacity-[.18] bg-[linear-gradient(90deg,rgba(255,255,255,.13)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.13)_1px,transparent_1px)] bg-[length:38px_38px]" />
       <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-amber-500/20 blur-3xl" />
@@ -462,23 +519,23 @@ export default function ZorroGallinaPrototype() {
         )}
       </AnimatePresence>
 
-      <main className="relative w-full max-w-7xl grid xl:grid-cols-[1fr_360px] gap-5 items-center">
-        <section className="rounded-[2rem] bg-[#22130b]/75 border border-amber-500/25 shadow-[0_25px_90px_rgba(0,0,0,.65)] p-4 sm:p-6 backdrop-blur-xl">
-          <div className="flex justify-between items-start mb-4 gap-3">
+      <main className="relative w-full h-full sm:h-auto max-w-7xl grid grid-rows-[auto_1fr] xl:grid-rows-1 xl:grid-cols-[1fr_360px] gap-2 sm:gap-5 items-start sm:items-center">
+        <section className="rounded-[1.5rem] sm:rounded-[2rem] bg-[#22130b]/75 border border-amber-500/25 shadow-[0_25px_90px_rgba(0,0,0,.65)] p-2 sm:p-6 backdrop-blur-xl">
+          <div className="flex justify-between items-start mb-2 sm:mb-4 gap-3">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-lime-300/10 border border-lime-200/20 px-3 py-1 text-xs text-lime-100 mb-2">
+              <div className="hidden sm:inline-flex items-center gap-2 rounded-full bg-lime-300/10 border border-lime-200/20 px-3 py-1 text-xs text-lime-100 mb-2">
                 <span className="w-2 h-2 rounded-full bg-lime-300 shadow-[0_0_10px_#bef264]" />
                 Prototipo jugable
               </div>
-              <h1 className="text-2xl sm:text-5xl font-black tracking-tight leading-tight">El Zorro y la Gallina</h1>
-              <p className="text-amber-100/70 text-sm sm:text-base mt-1">Tablero iluminado, granja, captura obligatoria y zorro soplado.</p>
+              <h1 className="text-lg sm:text-5xl font-black tracking-tight leading-tight">El Zorro y la Gallina</h1>
+              <p className="hidden sm:block text-amber-100/70 text-sm sm:text-base mt-1">Tablero iluminado, granja, captura obligatoria y zorro soplado.</p>
             </div>
             <div className="px-4 py-2 rounded-full bg-amber-500/15 border border-amber-300/30 text-amber-100 text-sm whitespace-nowrap shadow-inner">
               Turno: <b className="capitalize">{winner ? "fin" : turn}</b>
             </div>
           </div>
 
-          <div className="relative mx-auto aspect-square max-w-[790px] rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40">
+          <div ref={tableroRef} className="relative mx-auto aspect-square w-full max-w-[min(96vw,58dvh)] sm:max-w-[790px] rounded-[1.5rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#8b5226_0%,#3b2114_54%,#140b06_100%)]" />
             <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_48%,transparent_0%,rgba(0,0,0,.32)_72%)]" />
 
@@ -526,6 +583,11 @@ export default function ZorroGallinaPrototype() {
                   whileTap={{ scale: 0.94 }}
                   animate={isForcedFox ? { x: [0, 12, 0], scale: [1, 1.18, 1] } : isTurnPiece ? { x: 0, scale: [1, 1.07, 1] } : { x: 0, scale: 1 }}
                   transition={isForcedFox ? { duration: 0.8, repeat: 1 } : isTurnPiece ? { duration: 1.25, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
+                  drag={puedeArrastrarFicha(n.id)}
+                  dragSnapToOrigin
+                  dragMomentum={false}
+                  onDragStart={() => iniciarArrastre(n.id)}
+                  onDragEnd={(_, info) => terminarArrastre(info)}
                   onClick={() => selectOrMove(n.id)}
                   className={`absolute -translate-x-1/2 -translate-y-1/2 w-[7.4%] h-[7.4%] rounded-full flex items-center justify-center font-black transition-all z-20 ${isSelected ? "ring-4 ring-yellow-300 scale-110 z-30" : ""} ${isValidTarget || isForcedLanding ? "ring-4 ring-lime-300 z-30" : ""} ${isForcedHen ? "ring-4 ring-red-500 z-30" : ""} ${isTurnPiece ? turn === "gallinas" ? "drop-shadow-[0_0_18px_rgba(190,242,100,.75)]" : "drop-shadow-[0_0_20px_rgba(251,146,60,.85)]" : ""}`}
                   style={{ left: `${n.x}%`, top: `${n.y}%` }}
@@ -556,13 +618,13 @@ export default function ZorroGallinaPrototype() {
           </div>
         </section>
 
-        <aside className="rounded-[2rem] bg-[#22130b]/90 border border-amber-500/25 shadow-[0_25px_80px_rgba(0,0,0,.6)] p-5 sm:p-6 space-y-5 backdrop-blur-xl">
+        <aside className="rounded-[1.5rem] sm:rounded-[2rem] bg-[#22130b]/90 border border-amber-500/25 shadow-[0_25px_80px_rgba(0,0,0,.6)] p-3 sm:p-6 space-y-3 sm:space-y-5 backdrop-blur-xl overflow-y-auto max-h-[38dvh] sm:max-h-none">
           <div>
             <h2 className="text-xl font-black text-amber-100">Estado del juego</h2>
-            <p className="text-amber-100/65 mt-2 text-sm">Antes de soplar al zorro, se muestra la captura que estaba obligado a hacer. Si los zorros quedan sin movimientos, ganan las gallinas.</p>
+            <p className="hidden sm:block text-amber-100/65 mt-2 text-sm">Antes de soplar al zorro, se muestra la captura que estaba obligado a hacer. Si los zorros quedan sin movimientos, ganan las gallinas.</p>
           </div>
 
-          <div className="rounded-2xl bg-black/30 p-4 border border-white/10 shadow-inner">
+          <div className="rounded-2xl bg-black/30 p-3 sm:p-4 border border-white/10 shadow-inner">
             <p className="text-sm text-amber-100/85 leading-relaxed">{message}</p>
           </div>
 
@@ -577,12 +639,12 @@ export default function ZorroGallinaPrototype() {
             <div className="rounded-2xl bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-300/10 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs text-white/50 uppercase tracking-widest">Racha zorro</p>
-                  <h3 className="text-3xl font-black text-orange-300">{rachaZorro}</h3>
+                  <p className="text-[10px] sm:text-xs text-white/50 uppercase tracking-widest">Racha zorro</p>
+                  <h3 className="text-2xl sm:text-3xl font-black text-orange-300">{rachaZorro}</h3>
                 </div>
-                <div className="text-4xl">🔥</div>
+                <div className="text-3xl sm:text-4xl">🔥</div>
               </div>
-              <div className="mt-3 h-2 rounded-full bg-black/30 overflow-hidden">
+              <div className="hidden sm:block mt-3 h-2 rounded-full bg-black/30 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-500" style={{ width: `${Math.min(rachaZorro * 25, 100)}%` }} />
               </div>
             </div>
@@ -590,12 +652,12 @@ export default function ZorroGallinaPrototype() {
             <div className="rounded-2xl bg-gradient-to-r from-lime-500/10 to-emerald-500/10 border border-lime-300/10 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs text-white/50 uppercase tracking-widest">Racha gallinas</p>
-                  <h3 className="text-3xl font-black text-lime-300">{rachaGallinas}</h3>
+                  <p className="text-[10px] sm:text-xs text-white/50 uppercase tracking-widest">Racha gallinas</p>
+                  <h3 className="text-2xl sm:text-3xl font-black text-lime-300">{rachaGallinas}</h3>
                 </div>
-                <div className="text-4xl">🌾</div>
+                <div className="text-3xl sm:text-4xl">🌾</div>
               </div>
-              <div className="mt-3 h-2 rounded-full bg-black/30 overflow-hidden">
+              <div className="hidden sm:block mt-3 h-2 rounded-full bg-black/30 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-lime-300 to-emerald-500 transition-all duration-500" style={{ width: `${Math.min(rachaGallinas * 18, 100)}%` }} />
               </div>
             </div>
@@ -640,7 +702,7 @@ export default function ZorroGallinaPrototype() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-black/25 border border-white/10 p-4">
+          <div className="hidden sm:block rounded-2xl bg-black/25 border border-white/10 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-black text-white">Movimientos recientes</h3>
               <span className="text-xs text-white/40">LIVE</span>
@@ -659,7 +721,7 @@ export default function ZorroGallinaPrototype() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-black/25 border border-white/10 p-4">
+          <div className="hidden sm:block rounded-2xl bg-black/25 border border-white/10 p-4">
             <div className="grid grid-cols-2 gap-3 text-center">
               <div>
                 <p className="text-xs text-white/40 uppercase tracking-widest">Partidas</p>
@@ -672,7 +734,7 @@ export default function ZorroGallinaPrototype() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-amber-500/10 border border-amber-400/20 p-4">
+          <div className="hidden sm:block rounded-2xl bg-amber-500/10 border border-amber-400/20 p-4">
             <h3 className="font-bold text-amber-100">Reglas activas</h3>
             <div className="mt-3 grid gap-2 text-sm">
               <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas solo avanzan.</div>
@@ -685,11 +747,11 @@ export default function ZorroGallinaPrototype() {
             <p className="text-sm text-amber-100/70 mt-1">Si el zorro tiene captura obligatoria y no come, se muestra el salto correcto y luego ese zorro desaparece. Si ningún zorro puede moverse, quedan atrapados y ganan las gallinas.</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3">
-            <button onClick={activarSonidos} className={`w-full rounded-2xl font-black py-3 shadow-lg transition-transform hover:scale-[1.01] active:scale-[.98] ${soundEnabled ? "bg-lime-300 text-black shadow-lime-900/20" : "bg-white/10 text-white border border-white/15"}`}>
+          <div className="grid grid-cols-2 sm:grid-cols-1 gap-2 sm:gap-3 sticky bottom-0 bg-[#22130b]/95 pt-2">
+            <button onClick={activarSonidos} className={`w-full rounded-2xl font-black py-2.5 sm:py-3 shadow-lg transition-transform hover:scale-[1.01] active:scale-[.98] ${soundEnabled ? "bg-lime-300 text-black shadow-lime-900/20" : "bg-white/10 text-white border border-white/15"}`}>
               {soundEnabled ? "Sonidos activados" : "Activar sonidos"}
             </button>
-            <button onClick={resetGame} className="w-full rounded-2xl bg-gradient-to-r from-amber-300 to-amber-500 text-black font-black py-3 shadow-lg shadow-amber-900/30 hover:scale-[1.01] active:scale-[.98] transition-transform">
+            <button onClick={resetGame} className="w-full rounded-2xl bg-gradient-to-r from-amber-300 to-amber-500 text-black font-black py-2.5 sm:py-3 shadow-lg shadow-amber-900/30 hover:scale-[1.01] active:scale-[.98] transition-transform">
               Reiniciar partida
             </button>
           </div>
@@ -698,3 +760,4 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
