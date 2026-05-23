@@ -46,7 +46,7 @@ export default function ZorroGallinaPrototype() {
   const activarSonidos = () => {
     setSoundEnabled(true);
     setTimeout(() => crearSonido("mover"), 0);
-    setMessage("Sonidos activados. Ahora escucharás movimientos, capturas, zorro soplado y victoria.");
+    setMessage("Sonidos activados. Ahora escucharás movimientos, capturas, zorro soplao´ y victoria.");
   };
 
   const nodes = useMemo(() => {
@@ -264,14 +264,42 @@ export default function ZorroGallinaPrototype() {
     arrastreOrigenRef.current = null;
     if (!origen) return;
 
-    const destino = obtenerNodoCercanoDesdePunto(info.point);
-    if (!destino || destino === origen) {
+    const rect = tableroRef.current?.getBoundingClientRect();
+    const nodoOrigen = nodeById[origen];
+    const movimientosOrigen = getValidMoves(origen);
+
+    if (!rect || !nodoOrigen || movimientosOrigen.length === 0) {
       setSelected(null);
       setMessage("Movimiento cancelado.");
       return;
     }
 
-    selectOrMove(destino, origen);
+    // En móvil el dedo no siempre termina exactamente encima del punto.
+    // Por eso calculamos el destino usando la dirección del arrastre desde la ficha original
+    // y solo aceptamos posiciones que sean movimientos válidos para esa ficha.
+    const xProyectado = nodoOrigen.x + (info.offset.x / rect.width) * 100;
+    const yProyectado = nodoOrigen.y + (info.offset.y / rect.height) * 100;
+    const destinosValidos = movimientosOrigen.map((m) => ({ ...m, nodo: nodeById[m.to] })).filter((m) => m.nodo);
+
+    let mejorDestino = null;
+    let mejorDistancia = Infinity;
+
+    destinosValidos.forEach((movimiento) => {
+      const distancia = Math.hypot(movimiento.nodo.x - xProyectado, movimiento.nodo.y - yProyectado);
+      if (distancia < mejorDistancia) {
+        mejorDistancia = distancia;
+        mejorDestino = movimiento.to;
+      }
+    });
+
+    // Si el arrastre fue muy corto, dejamos que funcione como selección normal.
+    if (!mejorDestino || mejorDistancia > 13) {
+      setSelected(origen);
+      setMessage("Ficha seleccionada. También puedes tocar una posición válida.");
+      return;
+    }
+
+    selectOrMove(mejorDestino, origen);
   };
 
   const checkGallinaVictory = (nextHens) => {
@@ -520,7 +548,7 @@ export default function ZorroGallinaPrototype() {
       </AnimatePresence>
 
       <main className="relative w-full h-full sm:h-auto max-w-7xl grid grid-rows-[auto_1fr] xl:grid-rows-1 xl:grid-cols-[1fr_360px] gap-2 sm:gap-5 items-start sm:items-center">
-        <section className="rounded-[1.5rem] sm:rounded-[2rem] bg-[#22130b]/75 border border-amber-500/25 shadow-[0_25px_90px_rgba(0,0,0,.65)] p-2 sm:p-6 backdrop-blur-xl">
+        <section className="rounded-[1.5rem] sm:rounded-[2rem] bg-[#22130b]/75 border border-amber-500/25 shadow-[0_25px_90px_rgba(0,0,0,.65)] p-1 sm:p-6 backdrop-blur-xl">
           <div className="flex justify-between items-start mb-2 sm:mb-4 gap-3">
             <div>
               <div className="hidden sm:inline-flex items-center gap-2 rounded-full bg-lime-300/10 border border-lime-200/20 px-3 py-1 text-xs text-lime-100 mb-2">
@@ -535,7 +563,7 @@ export default function ZorroGallinaPrototype() {
             </div>
           </div>
 
-          <div ref={tableroRef} className="relative mx-auto aspect-square w-full max-w-[min(96vw,58dvh)] sm:max-w-[790px] rounded-[1.5rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
+          <div ref={tableroRef} className="relative mx-auto aspect-square w-full max-w-[min(99vw,66dvh)] sm:max-w-[790px] rounded-[1.5rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#8b5226_0%,#3b2114_54%,#140b06_100%)]" />
             <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_48%,transparent_0%,rgba(0,0,0,.32)_72%)]" />
 
@@ -589,7 +617,7 @@ export default function ZorroGallinaPrototype() {
                   onDragStart={() => iniciarArrastre(n.id)}
                   onDragEnd={(_, info) => terminarArrastre(info)}
                   onClick={() => selectOrMove(n.id)}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-[7.4%] h-[7.4%] rounded-full flex items-center justify-center font-black transition-all z-20 ${isSelected ? "ring-4 ring-yellow-300 scale-110 z-30" : ""} ${isValidTarget || isForcedLanding ? "ring-4 ring-lime-300 z-30" : ""} ${isForcedHen ? "ring-4 ring-red-500 z-30" : ""} ${isTurnPiece ? turn === "gallinas" ? "drop-shadow-[0_0_18px_rgba(190,242,100,.75)]" : "drop-shadow-[0_0_20px_rgba(251,146,60,.85)]" : ""}`}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center font-black transition-all z-20 ${isSelected ? "ring-4 ring-yellow-300 scale-110 z-30" : ""} ${isValidTarget || isForcedLanding ? "ring-4 ring-lime-300 z-30" : ""} ${isForcedHen ? "ring-4 ring-red-500 z-30" : ""} ${isTurnPiece ? turn === "gallinas" ? "drop-shadow-[0_0_18px_rgba(190,242,100,.75)]" : "drop-shadow-[0_0_20px_rgba(251,146,60,.85)]" : ""}`}
                   style={{ left: `${n.x}%`, top: `${n.y}%` }}
                   title={`Posición ${n.id}`}
                 >
@@ -741,7 +769,7 @@ export default function ZorroGallinaPrototype() {
               <div className="rounded-xl bg-black/20 px-3 py-2">🦊 El zorro puede comer varias veces seguidas.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🎯 Puedes ocultar la ayuda visual de gallinas y zorros para subir la dificultad.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">✨ Las fichas del turno actual brillan suavemente.</div>
-              <div className="rounded-xl bg-black/20 px-3 py-2">💨 Si no come teniendo captura, queda soplado.</div>
+              <div className="rounded-xl bg-black/20 px-3 py-2">💨 Si no come teniendo captura, queda soplao'.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🚫 Si los zorros no pueden moverse, pierden.</div>
             </div>
             <p className="text-sm text-amber-100/70 mt-1">Si el zorro tiene captura obligatoria y no come, se muestra el salto correcto y luego ese zorro desaparece. Si ningún zorro puede moverse, quedan atrapados y ganan las gallinas.</p>
@@ -760,4 +788,5 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
