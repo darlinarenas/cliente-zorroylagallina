@@ -46,7 +46,7 @@ export default function ZorroGallinaPrototype() {
   const activarSonidos = () => {
     setSoundEnabled(true);
     setTimeout(() => crearSonido("mover"), 0);
-    setMessage("Sonidos activados. Ahora escucharás movimientos, capturas, zorro soplao´ y victoria.");
+    setMessage("Sonidos activados. Ahora escucharás movimientos, capturas, zorro soplao y victoria.");
   };
 
   const nodes = useMemo(() => {
@@ -146,6 +146,7 @@ export default function ZorroGallinaPrototype() {
   const [mostrarAyudaZorro, setMostrarAyudaZorro] = useState(true);
   const [mostrarAyudaGallinas, setMostrarAyudaGallinas] = useState(true);
   const [partidasJugadas, setPartidasJugadas] = useState(1);
+  const [modoJuego, setModoJuego] = useState("dos_jugadores");
 
   const pieceAt = (id) => {
     if (foxes.includes(id)) return "zorro";
@@ -358,7 +359,7 @@ export default function ZorroGallinaPrototype() {
         if (nextFoxes.length === 0) {
           setWinner("gallinas");
           crearSonido("victoria");
-          setMessage("¡Las gallinas ganaron! Los dos zorros quedaron soplados.");
+          setMessage("¡Las gallinas ganaron! Los dos zorros quedaron soplaos");
         } else {
           setTimeout(() => checkZorrosAtrapados(nextFoxes, hens), 50);
         }
@@ -367,7 +368,7 @@ export default function ZorroGallinaPrototype() {
       });
 
       crearSonido("soplado");
-      setSopladoAlert("¡ZORRO SOPLADO!");
+      setSopladoAlert("¡ZORRO SOPLAO!");
       setForcedPreview(null);
       setSelected(null);
       setTurn("gallinas");
@@ -490,7 +491,7 @@ export default function ZorroGallinaPrototype() {
     setWarningOneFox(false);
     setForcedPreview(null);
     setCapturingFox(null);
-    setMessage("Juego reiniciado. Selecciona una gallina para moverla.");
+    setMessage(modoJuego === "dos_jugadores" ? "Juego reiniciado. Modo 2 jugadores local activo." : "Juego reiniciado. Selecciona una gallina para moverla.");
     setMovimientos([]);
     setRachaZorro(0);
     setRachaGallinas(0);
@@ -556,10 +557,10 @@ export default function ZorroGallinaPrototype() {
                 Prototipo jugable
               </div>
               <h1 className="text-lg sm:text-5xl font-black tracking-tight leading-tight">El Zorro y la Gallina</h1>
-              <p className="hidden sm:block text-amber-100/70 text-sm sm:text-base mt-1">Tablero iluminado, granja, captura obligatoria y zorro soplado.</p>
+              <p className="hidden sm:block text-amber-100/70 text-sm sm:text-base mt-1">Tablero iluminado, granja, captura obligatoria y zorro soplao.</p>
             </div>
             <div className="px-4 py-2 rounded-full bg-amber-500/15 border border-amber-300/30 text-amber-100 text-sm whitespace-nowrap shadow-inner">
-              Turno: <b className="capitalize">{winner ? "fin" : turn}</b>
+              <span className="hidden sm:inline">Turno: </span><b className="capitalize">{winner ? "fin" : turn}</b>
             </div>
           </div>
 
@@ -654,6 +655,46 @@ export default function ZorroGallinaPrototype() {
 
           <div className="rounded-2xl bg-black/30 p-3 sm:p-4 border border-white/10 shadow-inner">
             <p className="text-sm text-amber-100/85 leading-relaxed">{message}</p>
+          </div>
+
+          <div className="rounded-2xl bg-black/25 border border-white/10 p-3 sm:p-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h3 className="font-black text-white text-sm sm:text-base">Modo de partida</h3>
+                <p className="hidden sm:block text-xs text-white/45 mt-1">Por ahora queda listo para jugar entre dos personas en el mismo equipo.</p>
+              </div>
+              <span className="rounded-full bg-lime-300/15 border border-lime-300/25 px-3 py-1 text-[11px] font-black text-lime-200 whitespace-nowrap">LOCAL</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                onClick={() => {
+                  setModoJuego("dos_jugadores");
+                  setMessage("Modo 2 jugadores local activo: una persona mueve gallinas y otra mueve zorros.");
+                }}
+                className={`rounded-2xl px-3 py-3 font-black border transition-all ${modoJuego === "dos_jugadores" ? "bg-lime-300 text-black border-lime-200 shadow-[0_0_22px_rgba(190,242,100,.22)]" : "bg-white/5 text-white border-white/10"}`}
+              >
+                2 jugadores
+              </button>
+
+              <button
+                disabled
+                className="rounded-2xl px-3 py-3 font-black border bg-white/5 text-white/35 border-white/10 cursor-not-allowed"
+                title="Próxima fase"
+              >
+                Yo gallinas vs PC
+              </button>
+
+              <button
+                disabled
+                className="rounded-2xl px-3 py-3 font-black border bg-white/5 text-white/35 border-white/10 cursor-not-allowed"
+                title="Próxima fase"
+              >
+                Yo zorro vs PC
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs text-white/45">La computadora queda como siguiente fase. Esta versión queda lista para compartir y jugar en local.</p>
           </div>
 
           {warningOneFox && !winner && (
@@ -769,7 +810,7 @@ export default function ZorroGallinaPrototype() {
               <div className="rounded-xl bg-black/20 px-3 py-2">🦊 El zorro puede comer varias veces seguidas.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🎯 Puedes ocultar la ayuda visual de gallinas y zorros para subir la dificultad.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">✨ Las fichas del turno actual brillan suavemente.</div>
-              <div className="rounded-xl bg-black/20 px-3 py-2">💨 Si no come teniendo captura, queda soplao'.</div>
+              <div className="rounded-xl bg-black/20 px-3 py-2">💨 Si no come teniendo captura, queda soplao.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🚫 Si los zorros no pueden moverse, pierden.</div>
             </div>
             <p className="text-sm text-amber-100/70 mt-1">Si el zorro tiene captura obligatoria y no come, se muestra el salto correcto y luego ese zorro desaparece. Si ningún zorro puede moverse, quedan atrapados y ganan las gallinas.</p>
@@ -781,6 +822,14 @@ export default function ZorroGallinaPrototype() {
             </button>
             <button onClick={resetGame} className="w-full rounded-2xl bg-gradient-to-r from-amber-300 to-amber-500 text-black font-black py-2.5 sm:py-3 shadow-lg shadow-amber-900/30 hover:scale-[1.01] active:scale-[.98] transition-transform">
               Reiniciar partida
+            </button>
+          </div>
+        </aside>
+      </main>
+    </div>
+  );
+}
+
             </button>
           </div>
         </aside>
