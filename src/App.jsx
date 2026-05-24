@@ -46,7 +46,7 @@ export default function ZorroGallinaPrototype() {
   const activarSonidos = () => {
     setSoundEnabled(true);
     setTimeout(() => crearSonido("mover"), 0);
-    setMessage("Sonidos activados. Ahora escucharás movimientos, capturas, zorro soplado y victoria.");
+    setMessage("Sonidos activados. Ahora escucharás movimientos, capturas, zorro soplao y victoria.");
   };
 
   const nodes = useMemo(() => {
@@ -147,6 +147,8 @@ export default function ZorroGallinaPrototype() {
   const [mostrarAyudaGallinas, setMostrarAyudaGallinas] = useState(true);
   const [partidasJugadas, setPartidasJugadas] = useState(1);
   const [modoJuego, setModoJuego] = useState("dos_jugadores");
+  const [juegoIniciado, setJuegoIniciado] = useState(false);
+  const [pcMovimientoPreview, setPcMovimientoPreview] = useState(null);
 
   const pieceAt = (id) => {
     if (foxes.includes(id)) return "zorro";
@@ -223,6 +225,7 @@ export default function ZorroGallinaPrototype() {
       : selectedMoves.map((m) => m.to);
 
   const esTurnoComputadora = () => {
+    if (!juegoIniciado) return false;
     if (modoJuego === "humano_gallinas" && turn === "zorros") return true;
     if (modoJuego === "humano_zorros" && turn === "gallinas") return true;
     return false;
@@ -281,10 +284,10 @@ export default function ZorroGallinaPrototype() {
       .map((movimiento) => {
         const origen = nodeById[movimiento.from];
         const destino = nodeById[movimiento.to];
-        const entraGranja = farmCells.includes(movimiento.to) ? 30 : 0;
+        const entraGallinero = farmCells.includes(movimiento.to) ? 30 : 0;
         const avance = origen && destino ? origen.row - destino.row : 0;
         const centro = destino ? -Math.abs(destino.col - 3) * 0.2 : 0;
-        return { ...movimiento, score: entraGranja + avance * 4 + centro + Math.random() * 0.35 };
+        return { ...movimiento, score: entraGallinero + avance * 4 + centro + Math.random() * 0.35 };
       })
       .sort((a, b) => b.score - a.score)[0];
   };
@@ -299,7 +302,15 @@ export default function ZorroGallinaPrototype() {
       return;
     }
 
-    selectOrMove(movimiento.to, movimiento.from, true);
+    const fichaPc = turn === "zorros" ? "zorro" : "gallina";
+    setSelected(movimiento.from);
+    setPcMovimientoPreview({ from: movimiento.from, to: movimiento.to, type: movimiento.type });
+    setMessage(`La PC va a mover ${fichaPc}: mira la ficha iluminada y su destino.`);
+
+    setTimeout(() => {
+      selectOrMove(movimiento.to, movimiento.from, true);
+      setPcMovimientoPreview(null);
+    }, 850);
   };
 
   const obtenerNodoCercanoDesdePunto = (punto) => {
@@ -388,7 +399,7 @@ export default function ZorroGallinaPrototype() {
     if (hensInFarm >= 9) {
       setWinner("gallinas");
       crearSonido("victoria");
-      setMessage("¡Las gallinas ganaron! Llenaron la granja.");
+      setMessage("¡Las gallinas ganaron! Llenaron el gallinero.");
       return true;
     }
     return false;
@@ -439,7 +450,7 @@ export default function ZorroGallinaPrototype() {
         if (nextFoxes.length === 0) {
           setWinner("gallinas");
           crearSonido("victoria");
-          setMessage("¡Las gallinas ganaron! Los dos zorros quedaron soplados.");
+          setMessage("¡Las gallinas ganaron! Los dos zorros quedaron soplaos.");
         } else {
           setTimeout(() => checkZorrosAtrapados(nextFoxes, hens), 50);
         }
@@ -448,7 +459,7 @@ export default function ZorroGallinaPrototype() {
       });
 
       crearSonido("soplado");
-      setSopladoAlert("¡ZORRO SOPLADO!");
+      setSopladoAlert("¡ZORRO SOPLAO!");
       setForcedPreview(null);
       setSelected(null);
       setTurn("gallinas");
@@ -457,6 +468,10 @@ export default function ZorroGallinaPrototype() {
 
   const selectOrMove = (id, selectedOverride = null, movimientoComputadora = false) => {
     if (winner || forcedPreview) return;
+    if (!juegoIniciado && !movimientoComputadora) {
+      setMessage("Elige el modo y presiona Comenzar para iniciar la partida.");
+      return;
+    }
     if (!movimientoComputadora && esTurnoComputadora()) {
       setMessage("Es turno de la computadora. Espera su movimiento.");
       return;
@@ -568,7 +583,7 @@ export default function ZorroGallinaPrototype() {
   };
 
   useEffect(() => {
-    if (!esTurnoComputadora() || winner || forcedPreview) return;
+    if (!juegoIniciado || pcMovimientoPreview || !esTurnoComputadora() || winner || forcedPreview) return;
 
     setMessage(turn === "zorros" ? "La computadora está pensando con los zorros..." : "La computadora está pensando con las gallinas...");
     const timer = setTimeout(() => {
@@ -576,7 +591,7 @@ export default function ZorroGallinaPrototype() {
     }, 650);
 
     return () => clearTimeout(timer);
-  }, [turn, modoJuego, hens, foxes, capturingFox, winner, forcedPreview]);
+  }, [turn, modoJuego, hens, foxes, capturingFox, winner, forcedPreview, juegoIniciado, pcMovimientoPreview]);
 
   const resetGame = () => {
     setTurn("gallinas");
@@ -586,7 +601,9 @@ export default function ZorroGallinaPrototype() {
     setWarningOneFox(false);
     setForcedPreview(null);
     setCapturingFox(null);
-    setMessage(modoJuego === "dos_jugadores" ? "Juego reiniciado. Modo 2 jugadores local activo." : "Juego reiniciado. Modo contra computadora activo.");
+    setJuegoIniciado(false);
+    setPcMovimientoPreview(null);
+    setMessage("Partida reiniciada. Elige el modo y presiona Comenzar.");
     setMovimientos([]);
     setRachaZorro(0);
     setRachaGallinas(0);
@@ -594,6 +611,52 @@ export default function ZorroGallinaPrototype() {
     setHens(initialHens);
     setFoxes(initialFoxes);
     setHensEaten(0);
+  };
+
+
+  const prepararModo = (nuevoModo) => {
+    setModoJuego(nuevoModo);
+    setJuegoIniciado(false);
+    setSelected(null);
+    setWinner(null);
+    setSopladoAlert(null);
+    setWarningOneFox(false);
+    setForcedPreview(null);
+    setCapturingFox(null);
+    setPcMovimientoPreview(null);
+    setMovimientos([]);
+    setRachaZorro(0);
+    setRachaGallinas(0);
+    setHens(initialHens);
+    setFoxes(initialFoxes);
+    setHensEaten(0);
+
+    if (nuevoModo === "dos_jugadores") {
+      setMessage("Modo 2 jugadores seleccionado. Presiona Comenzar para jugar.");
+    } else if (nuevoModo === "humano_gallinas") {
+      setMessage("Elegiste gallinas. Presiona Comenzar para que luego juegue la PC con los zorros.");
+    } else {
+      setMessage("Elegiste zorro. Presiona Comenzar para jugar contra las gallinas de la PC.");
+    }
+  };
+
+  const comenzarPartida = () => {
+    setTurn("gallinas");
+    setSelected(null);
+    setWinner(null);
+    setSopladoAlert(null);
+    setWarningOneFox(false);
+    setForcedPreview(null);
+    setCapturingFox(null);
+    setPcMovimientoPreview(null);
+    setMovimientos([]);
+    setRachaZorro(0);
+    setRachaGallinas(0);
+    setHens(initialHens);
+    setFoxes(initialFoxes);
+    setHensEaten(0);
+    setJuegoIniciado(true);
+    setMessage(modoJuego === "dos_jugadores" ? "Partida iniciada: juegan las gallinas." : "Partida iniciada. Juegan las gallinas primero.");
   };
 
   const hensInFarm = hens.filter((pos) => farmCells.includes(pos)).length;
@@ -652,7 +715,7 @@ export default function ZorroGallinaPrototype() {
                 Prototipo jugable
               </div>
               <h1 className="text-lg sm:text-5xl font-black tracking-tight leading-tight">El Zorro y la Gallina</h1>
-              <p className="hidden sm:block text-amber-100/70 text-sm sm:text-base mt-1">Tablero iluminado, granja, captura obligatoria y zorro soplado.</p>
+              <p className="hidden sm:block text-amber-100/70 text-sm sm:text-base mt-1">Tablero iluminado, gallinero, captura obligatoria y zorro soplao.</p>
             </div>
             <div className="px-4 py-2 rounded-full bg-amber-500/15 border border-amber-300/30 text-amber-100 text-sm whitespace-nowrap shadow-inner">
               <span className="hidden sm:inline">Turno: </span><b className="capitalize">{winner ? "fin" : turn}</b>
@@ -699,7 +762,9 @@ export default function ZorroGallinaPrototype() {
               const isForcedHen = forcedPreview?.over === n.id;
               const isForcedLanding = forcedPreview?.to === n.id;
               const isFarm = farmCells.includes(n.id);
-              const isTurnPiece = !winner && !forcedPreview && ((turn === "gallinas" && piece === "gallina") || (turn === "zorros" && piece === "zorro"));
+              const isTurnPiece = !winner && !forcedPreview && juegoIniciado && ((turn === "gallinas" && piece === "gallina") || (turn === "zorros" && piece === "zorro"));
+              const isPcFrom = pcMovimientoPreview?.from === n.id;
+              const isPcTo = pcMovimientoPreview?.to === n.id;
 
               return (
                 <motion.button
@@ -713,11 +778,11 @@ export default function ZorroGallinaPrototype() {
                   onDragStart={() => iniciarArrastre(n.id)}
                   onDragEnd={(_, info) => terminarArrastre(info)}
                   onClick={() => selectOrMove(n.id)}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center font-black transition-all z-20 ${isSelected ? "ring-4 ring-yellow-300 scale-110 z-30" : ""} ${isValidTarget || isForcedLanding ? "ring-4 ring-lime-300 z-30" : ""} ${isForcedHen ? "ring-4 ring-red-500 z-30" : ""} ${isTurnPiece ? turn === "gallinas" ? "drop-shadow-[0_0_18px_rgba(190,242,100,.75)]" : "drop-shadow-[0_0_20px_rgba(251,146,60,.85)]" : ""}`}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center font-black transition-all z-20 ${isSelected ? "ring-4 ring-yellow-300 scale-110 z-30" : ""} ${isValidTarget || isForcedLanding ? "ring-4 ring-lime-300 z-30" : ""} ${isForcedHen ? "ring-4 ring-red-500 z-30" : ""} ${isPcFrom ? "ring-4 ring-sky-300 z-40" : ""} ${isPcTo ? "ring-4 ring-cyan-300 z-40" : ""} ${isTurnPiece ? turn === "gallinas" ? "drop-shadow-[0_0_18px_rgba(190,242,100,.75)]" : "drop-shadow-[0_0_20px_rgba(251,146,60,.85)]" : ""}`}
                   style={{ left: `${n.x}%`, top: `${n.y}%` }}
                   title={`Posición ${n.id}`}
                 >
-                  <span className={`absolute inset-0 rounded-full border-[3px] shadow-[0_7px_18px_rgba(0,0,0,.6)] ${isValidTarget || isForcedLanding ? "bg-lime-300 border-lime-900 animate-pulse shadow-[0_0_25px_rgba(190,242,100,.8)]" : isTurnPiece ? turn === "gallinas" ? "bg-[#d6a35c] border-lime-300 shadow-[0_0_18px_rgba(190,242,100,.5)]" : "bg-[#d6a35c] border-orange-300 shadow-[0_0_20px_rgba(251,146,60,.6)]" : isFarm ? "bg-[#d59b57] border-[#4a2a18]" : "bg-[#c58a4a] border-[#4a2a18]"}`} />
+                  <span className={`absolute inset-0 rounded-full border-[3px] shadow-[0_7px_18px_rgba(0,0,0,.6)] ${isPcTo ? "bg-cyan-300 border-cyan-900 animate-pulse shadow-[0_0_30px_rgba(103,232,249,.85)]" : isPcFrom ? "bg-sky-300 border-sky-900 shadow-[0_0_28px_rgba(125,211,252,.8)]" : isValidTarget || isForcedLanding ? "bg-lime-300 border-lime-900 animate-pulse shadow-[0_0_25px_rgba(190,242,100,.8)]" : isTurnPiece ? turn === "gallinas" ? "bg-[#d6a35c] border-lime-300 shadow-[0_0_18px_rgba(190,242,100,.5)]" : "bg-[#d6a35c] border-orange-300 shadow-[0_0_20px_rgba(251,146,60,.6)]" : isFarm ? "bg-[#d59b57] border-[#4a2a18]" : "bg-[#c58a4a] border-[#4a2a18]"}`} />
                   {!piece && null}
                   {piece === "zorro" && <span className="relative text-2xl sm:text-4xl drop-shadow-lg">🦊</span>}
                   {piece === "gallina" && <span className="relative text-2xl sm:text-4xl drop-shadow-lg">🐔</span>}
@@ -734,7 +799,7 @@ export default function ZorroGallinaPrototype() {
                 <motion.div initial={{ scale: 0.82, y: 20 }} animate={{ scale: 1, y: 0 }} className="rounded-[2rem] bg-gradient-to-br from-amber-300 to-amber-600 text-black p-8 text-center shadow-2xl border-4 border-white/50 max-w-md">
                   <div className="text-6xl mb-3">{winner === "gallinas" ? "🐔" : "🦊"}</div>
                   <h2 className="text-3xl font-black">Ganaron las {winner}</h2>
-                  <p className="mt-2 font-bold">{winner === "gallinas" ? "Llenaron la granja o soplaron a los dos zorros." : "Se comieron 12 gallinas."}</p>
+                  <p className="mt-2 font-bold">{winner === "gallinas" ? "Llenaron el gallinero o soplaron a los dos zorros." : "Se comieron 12 gallinas."}</p>
                   <button onClick={resetGame} className="mt-5 rounded-2xl bg-black text-white font-black px-6 py-3">Nueva partida</button>
                 </motion.div>
               </motion.div>
@@ -759,44 +824,39 @@ export default function ZorroGallinaPrototype() {
                 <p className="hidden sm:block text-xs text-white/45 mt-1">Puedes jugar local o contra una computadora simple/intermedia.</p>
               </div>
               <span className="rounded-full bg-lime-300/15 border border-lime-300/25 px-3 py-1 text-[11px] font-black text-lime-200 whitespace-nowrap">
-                {modoJuego === "dos_jugadores" ? "LOCAL" : "VS PC"}
+                {!juegoIniciado ? "LISTO" : modoJuego === "dos_jugadores" ? "LOCAL" : "VS PC"}
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
-                onClick={() => {
-                  setModoJuego("dos_jugadores");
-                  setSelected(null);
-                  setMessage("Modo 2 jugadores local activo: una persona mueve gallinas y otra mueve zorros.");
-                }}
+                onClick={() => prepararModo("dos_jugadores")}
                 className={`rounded-2xl px-3 py-3 font-black border transition-all ${modoJuego === "dos_jugadores" ? "bg-lime-300 text-black border-lime-200 shadow-[0_0_22px_rgba(190,242,100,.22)]" : "bg-white/5 text-white border-white/10"}`}
               >
                 2 jugadores
               </button>
 
               <button
-                onClick={() => {
-                  setModoJuego("humano_gallinas");
-                  setSelected(null);
-                  setMessage("Modo activo: tú juegas con las gallinas y la computadora mueve los zorros.");
-                }}
+                onClick={() => prepararModo("humano_gallinas")}
                 className={`rounded-2xl px-3 py-3 font-black border transition-all ${modoJuego === "humano_gallinas" ? "bg-lime-300 text-black border-lime-200 shadow-[0_0_22px_rgba(190,242,100,.22)]" : "bg-white/5 text-white border-white/10"}`}
               >
                 Yo gallinas vs PC
               </button>
 
               <button
-                onClick={() => {
-                  setModoJuego("humano_zorros");
-                  setSelected(null);
-                  setMessage("Modo activo: tú juegas con los zorros y la computadora mueve las gallinas.");
-                }}
+                onClick={() => prepararModo("humano_zorros")}
                 className={`rounded-2xl px-3 py-3 font-black border transition-all ${modoJuego === "humano_zorros" ? "bg-orange-300 text-black border-orange-200 shadow-[0_0_22px_rgba(251,146,60,.22)]" : "bg-white/5 text-white border-white/10"}`}
               >
                 Yo zorro vs PC
               </button>
             </div>
+
+            <button
+              onClick={comenzarPartida}
+              className={`mt-3 w-full rounded-2xl px-4 py-3 font-black border transition-all ${juegoIniciado ? "bg-white/10 text-white/60 border-white/10" : "bg-gradient-to-r from-lime-300 to-emerald-400 text-black border-lime-200 shadow-[0_0_28px_rgba(190,242,100,.28)]"}`}
+            >
+              {juegoIniciado ? "Partida en curso" : "Comenzar"}
+            </button>
 
             <p className="mt-3 text-xs text-white/45">La computadora es simple: captura si puede, sigue capturando si tiene cadena y si no, hace un movimiento válido.</p>
           </div>
@@ -856,7 +916,7 @@ export default function ZorroGallinaPrototype() {
             <div className="rounded-2xl bg-black/30 p-3 border border-white/10">
               <div className="text-2xl">🌾</div>
               <b>{hensInFarm}/9</b>
-              <p className="text-xs text-white/50">granja</p>
+              <p className="text-xs text-white/50">gallinero</p>
             </div>
             <div className="rounded-2xl bg-black/30 p-3 border border-white/10">
               <div className="text-2xl">🐔</div>
@@ -914,7 +974,7 @@ export default function ZorroGallinaPrototype() {
               <div className="rounded-xl bg-black/20 px-3 py-2">🦊 El zorro puede comer varias veces seguidas.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🎯 Puedes ocultar la ayuda visual de gallinas y zorros para subir la dificultad.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">✨ Las fichas del turno actual brillan suavemente.</div>
-              <div className="rounded-xl bg-black/20 px-3 py-2">💨 Si no come teniendo captura, queda soplado.</div>
+              <div className="rounded-xl bg-black/20 px-3 py-2">💨 Si no come teniendo captura, queda soplao.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🚫 Si los zorros no pueden moverse, pierden.</div>
             </div>
             <p className="text-sm text-amber-100/70 mt-1">Si el zorro tiene captura obligatoria y no come, se muestra el salto correcto y luego ese zorro desaparece. Si ningún zorro puede moverse, quedan atrapados y ganan las gallinas.</p>
@@ -933,6 +993,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
