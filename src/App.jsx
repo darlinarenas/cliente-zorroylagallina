@@ -840,6 +840,27 @@ export default function ZorroGallinaPrototype() {
         <button onClick={() => setPanelMovil("modo")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">🎮</button>
       </div>
 
+      {juegoIniciado && !panelMovil && (
+        <div className="fixed left-[4.35rem] right-[4.35rem] top-3 z-40 sm:hidden grid grid-cols-4 gap-1.5 pointer-events-none">
+          <div className="rounded-2xl bg-black/60 border border-white/15 backdrop-blur-xl px-1.5 py-2 text-center shadow-2xl">
+            <div className="text-sm leading-none">🍗</div>
+            <b className="text-[11px] leading-none text-amber-100">{hensEaten}/12</b>
+          </div>
+          <div className="rounded-2xl bg-black/60 border border-orange-300/20 backdrop-blur-xl px-1.5 py-2 text-center shadow-2xl">
+            <div className="text-sm leading-none">🔥</div>
+            <b className="text-[11px] leading-none text-orange-200">{rachaZorro}</b>
+          </div>
+          <div className="rounded-2xl bg-black/60 border border-lime-300/20 backdrop-blur-xl px-1.5 py-2 text-center shadow-2xl">
+            <div className="text-sm leading-none">🌾</div>
+            <b className="text-[11px] leading-none text-lime-200">{rachaGallinas}</b>
+          </div>
+          <div className="rounded-2xl bg-black/60 border border-lime-300/20 backdrop-blur-xl px-1.5 py-2 text-center shadow-2xl">
+            <div className="text-sm leading-none">🏠</div>
+            <b className="text-[11px] leading-none text-lime-100">{hensInFarm}/9</b>
+          </div>
+        </div>
+      )}
+
       <div className="fixed right-3 top-3 z-40 sm:hidden flex flex-col gap-2">
         <button onClick={() => setPanelMovil("stats")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">📊</button>
         <button onClick={() => setPanelMovil("ayuda")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">🎯</button>
@@ -866,8 +887,8 @@ export default function ZorroGallinaPrototype() {
         )}
       </AnimatePresence>
 
-      <main className="relative w-full h-full sm:h-auto max-w-7xl grid grid-rows-1 xl:grid-rows-1 xl:grid-cols-[1fr_360px] gap-0 sm:gap-5 items-center justify-items-center">
-        <section className="relative flex h-full w-full items-center justify-center bg-transparent border-0 shadow-none p-0 sm:block sm:h-auto sm:rounded-[2rem] sm:bg-[#22130b]/75 sm:border sm:border-amber-500/25 sm:shadow-[0_25px_90px_rgba(0,0,0,.65)] sm:p-6 sm:backdrop-blur-xl">
+      <main className="relative w-full h-full sm:h-auto max-w-7xl grid grid-rows-1 xl:grid-rows-1 xl:grid-cols-[1fr_360px] gap-0 sm:gap-5 items-center justify-items-center overflow-hidden sm:overflow-visible">
+        <section className="relative flex h-full w-full items-center justify-center bg-transparent border-0 shadow-none px-1 py-0 sm:block sm:h-auto sm:rounded-[2rem] sm:bg-[#22130b]/75 sm:border sm:border-amber-500/25 sm:shadow-[0_25px_90px_rgba(0,0,0,.65)] sm:p-6 sm:backdrop-blur-xl">
           <div className="hidden sm:flex justify-between items-start mb-4 gap-3">
             <div>
               <div className="hidden sm:inline-flex items-center gap-2 rounded-full bg-lime-300/10 border border-lime-200/20 px-3 py-1 text-xs text-lime-100 mb-2">
@@ -882,7 +903,7 @@ export default function ZorroGallinaPrototype() {
             </div>
           </div>
 
-          <div ref={tableroRef} className="relative mx-auto aspect-square w-[118vw] max-w-[92dvh] sm:w-full sm:max-w-[790px] rounded-[1.4rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
+          <div ref={tableroRef} className="relative mx-auto aspect-square w-[98vw] max-w-[calc(100dvh-7.4rem)] sm:w-full sm:max-w-[790px] rounded-[1.4rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#8b5226_0%,#3b2114_54%,#140b06_100%)]" />
             <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_48%,transparent_0%,rgba(0,0,0,.32)_72%)]" />
 
@@ -1153,6 +1174,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
