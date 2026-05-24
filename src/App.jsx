@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function ZorroGallinaPrototype() {
   const tableroRef = useRef(null);
   const arrastreOrigenRef = useRef(null);
+  const historialPcRef = useRef([]);
   const [turn, setTurn] = useState("gallinas");
   const [selected, setSelected] = useState(null);
   const [message, setMessage] = useState("Selecciona una gallina para moverla.");
@@ -196,8 +197,22 @@ export default function ZorroGallinaPrototype() {
         .filter((to) => {
           const fromNode = nodeById[id];
           const toNode = nodeById[to];
-          const isForward = toNode.row <= fromNode.row;
-          return !isOccupied(to) && isForward;
+          if (!fromNode || !toNode || isOccupied(to)) return false;
+
+          // Corrección anti-bucle gallina:
+          // Las gallinas avanzan hacia el gallinero. Cuando llegan a la última línea
+          // del gallinero (fila superior), solo pueden hacer un último ajuste lateral
+          // desde el centro hacia una esquina. Al quedar en esquina, ya no tienen más movimientos.
+          const esMovimientoVerticalHaciaGallinero = toNode.row < fromNode.row;
+          const esMovimientoLateral = toNode.row === fromNode.row;
+          const estaEnUltimaLineaGallinero = fromNode.row === 0;
+          const estaEnCentroDeUltimaLinea = estaEnUltimaLineaGallinero && fromNode.col === 3;
+          const destinoEsEsquinaFinal = toNode.row === 0 && (toNode.col === 2 || toNode.col === 4);
+
+          if (esMovimientoVerticalHaciaGallinero) return true;
+          if (esMovimientoLateral && estaEnCentroDeUltimaLinea && destinoEsEsquinaFinal) return true;
+
+          return false;
         })
         .map((to) => ({ type: "move", to }));
     }
@@ -232,6 +247,31 @@ export default function ZorroGallinaPrototype() {
     return false;
   };
 
+  const esMovimientoPcRepetido = (movimiento) => {
+    const historial = historialPcRef.current || [];
+    const ultimo = historial[0];
+    const penultimo = historial[1];
+
+    const reversaInmediata = ultimo && ultimo.from === movimiento.to && ultimo.to === movimiento.from;
+    const mismoVaivenRepetido =
+      ultimo &&
+      penultimo &&
+      ultimo.from === penultimo.to &&
+      ultimo.to === penultimo.from &&
+      ((movimiento.from === ultimo.to && movimiento.to === ultimo.from) ||
+        (movimiento.from === ultimo.from && movimiento.to === ultimo.to));
+
+    return { reversaInmediata, mismoVaivenRepetido };
+  };
+
+  const registrarMovimientoPc = (movimiento) => {
+    if (!movimiento?.from || !movimiento?.to) return;
+    historialPcRef.current = [
+      { from: movimiento.from, to: movimiento.to, type: movimiento.type, turn },
+      ...(historialPcRef.current || []),
+    ].slice(0, 8);
+  };
+
   const obtenerMovimientoComputadoraZorro = () => {
     const zorrosDisponibles = capturingFox ? foxes.filter((zorro) => zorro === capturingFox) : foxes;
     const capturas = zorrosDisponibles.flatMap((zorro) =>
@@ -262,7 +302,20 @@ export default function ZorroGallinaPrototype() {
         const origen = nodeById[movimiento.from];
         const destino = nodeById[movimiento.to];
         const avanceHaciaGallinas = destino && origen ? destino.row - origen.row : 0;
-        return { ...movimiento, score: avanceHaciaGallinas + Math.random() * 0.25 };
+        const opcionesDesdeDestino = connections[movimiento.to]?.filter((to) => !isOccupied(to)).length || 0;
+        const { reversaInmediata, mismoVaivenRepetido } = esMovimientoPcRepetido(movimiento);
+
+        // Corrección anti-bucle zorro:
+        // Se penaliza fuerte regresar a la misma casilla anterior y mucho más repetir
+        // el mismo vaivén. Además se premian destinos con más salidas para que el zorro
+        // no se quede pegado entre dos posiciones si tiene alternativas reales.
+        const penalizacionBucle = (reversaInmediata ? 8 : 0) + (mismoVaivenRepetido ? 20 : 0);
+        const movilidad = opcionesDesdeDestino * 0.65;
+
+        return {
+          ...movimiento,
+          score: avanceHaciaGallinas + movilidad - penalizacionBucle + Math.random() * 0.35,
+        };
       })
       .sort((a, b) => b.score - a.score)[0];
   };
@@ -273,8 +326,20 @@ export default function ZorroGallinaPrototype() {
         .filter((to) => {
           const fromNode = nodeById[gallina];
           const toNode = nodeById[to];
-          const isForward = toNode.row <= fromNode.row;
-          return !isOccupied(to) && isForward;
+          if (!fromNode || !toNode || isOccupied(to)) return false;
+
+          // Misma regla que el jugador humano: avanzar hacia el gallinero,
+          // y en la última línea solo un ajuste lateral desde el centro a una esquina.
+          const esMovimientoVerticalHaciaGallinero = toNode.row < fromNode.row;
+          const esMovimientoLateral = toNode.row === fromNode.row;
+          const estaEnUltimaLineaGallinero = fromNode.row === 0;
+          const estaEnCentroDeUltimaLinea = estaEnUltimaLineaGallinero && fromNode.col === 3;
+          const destinoEsEsquinaFinal = toNode.row === 0 && (toNode.col === 2 || toNode.col === 4);
+
+          if (esMovimientoVerticalHaciaGallinero) return true;
+          if (esMovimientoLateral && estaEnCentroDeUltimaLinea && destinoEsEsquinaFinal) return true;
+
+          return false;
         })
         .map((to) => ({ type: "move", from: gallina, to }))
     );
@@ -288,7 +353,14 @@ export default function ZorroGallinaPrototype() {
         const entraGallinero = farmCells.includes(movimiento.to) ? 30 : 0;
         const avance = origen && destino ? origen.row - destino.row : 0;
         const centro = destino ? -Math.abs(destino.col - 3) * 0.2 : 0;
-        return { ...movimiento, score: entraGallinero + avance * 4 + centro + Math.random() * 0.35 };
+        const { reversaInmediata, mismoVaivenRepetido } = esMovimientoPcRepetido(movimiento);
+        const penalizacionBucle = (reversaInmediata ? 10 : 0) + (mismoVaivenRepetido ? 25 : 0);
+        const ajusteFinalValido = origen?.row === 0 && origen?.col === 3 && destino?.row === 0 ? 2 : 0;
+
+        return {
+          ...movimiento,
+          score: entraGallinero + avance * 4 + centro + ajusteFinalValido - penalizacionBucle + Math.random() * 0.35,
+        };
       })
       .sort((a, b) => b.score - a.score)[0];
   };
@@ -309,6 +381,7 @@ export default function ZorroGallinaPrototype() {
     setMessage(`La PC va a mover ${fichaPc}: mira la ficha iluminada y su destino.`);
 
     setTimeout(() => {
+      registrarMovimientoPc(movimiento);
       selectOrMove(movimiento.to, movimiento.from, true);
       setPcMovimientoPreview(null);
     }, 850);
@@ -604,6 +677,7 @@ export default function ZorroGallinaPrototype() {
     setCapturingFox(null);
     setJuegoIniciado(false);
     setPcMovimientoPreview(null);
+    historialPcRef.current = [];
     setMessage("Partida reiniciada. Elige el modo y presiona Comenzar.");
     setMovimientos([]);
     setRachaZorro(0);
@@ -625,6 +699,7 @@ export default function ZorroGallinaPrototype() {
     setForcedPreview(null);
     setCapturingFox(null);
     setPcMovimientoPreview(null);
+    historialPcRef.current = [];
     setMovimientos([]);
     setRachaZorro(0);
     setRachaGallinas(0);
@@ -650,6 +725,7 @@ export default function ZorroGallinaPrototype() {
     setForcedPreview(null);
     setCapturingFox(null);
     setPcMovimientoPreview(null);
+    historialPcRef.current = [];
     setMovimientos([]);
     setRachaZorro(0);
     setRachaGallinas(0);
@@ -1193,6 +1269,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
