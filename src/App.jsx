@@ -1171,14 +1171,14 @@ export default function ZorroGallinaPrototype() {
               </motion.div>
             )}
           </div>
-          {/* Firma profesional */}
-          <div className="hidden sm:flex absolute left-6 bottom-5 items-center gap-4 opacity-80">
-            <div className="w-[2px] h-14 rounded-full bg-gradient-to-b from-amber-200 to-amber-500 shadow-[0_0_12px_rgba(251,191,36,.55)]" />
+          {/* Firma profesional responsive */}
+          <div className="absolute left-4 bottom-[4.6rem] sm:left-6 sm:bottom-5 z-30 flex items-center gap-3 sm:gap-4 opacity-75 sm:opacity-80 pointer-events-none">
+            <div className="w-[2px] h-10 sm:h-14 rounded-full bg-gradient-to-b from-amber-200 to-amber-500 shadow-[0_0_12px_rgba(251,191,36,.55)]" />
             <div className="leading-tight">
-              <p className="text-[1.7rem] font-semibold text-white/90 tracking-wide">
+              <p className="text-[0.78rem] sm:text-[1.7rem] font-semibold text-white/90 tracking-wide">
                 CEO Darling Arenas
               </p>
-              <p className="text-base text-amber-100/65 tracking-wide">
+              <p className="text-[0.62rem] sm:text-base text-amber-100/65 tracking-wide">
                 Ingeniero de Sistemas
               </p>
             </div>
@@ -1366,4 +1366,5 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
