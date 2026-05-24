@@ -151,6 +151,13 @@ export default function ZorroGallinaPrototype() {
   const [modoJuego, setModoJuego] = useState("dos_jugadores");
   const [juegoIniciado, setJuegoIniciado] = useState(false);
   const [pcMovimientoPreview, setPcMovimientoPreview] = useState(null);
+  const [movimientoVisible, setMovimientoVisible] = useState(null);
+
+  // Muestra una ficha fantasma viajando entre origen y destino para que el movimiento no se vea brusco.
+  const mostrarMovimientoVisible = (from, to, piece, type = "move") => {
+    if (!from || !to || !piece) return;
+    setMovimientoVisible({ from, to, piece, type, key: `${piece}-${from}-${to}-${Date.now()}` });
+  };
 
   const pieceAt = (id) => {
     if (foxes.includes(id)) return "zorro";
@@ -585,6 +592,7 @@ export default function ZorroGallinaPrototype() {
     const selectedPiece = pieceAt(currentSelected);
 
     if (selectedPiece === "gallina") {
+      mostrarMovimientoVisible(currentSelected, id, "gallina", "move");
       const nextHens = hens.map((pos) => (pos === currentSelected ? id : pos));
       setHens(nextHens);
       setMovimientos((prev) => [`🐔 Gallina: ${currentSelected} → ${id}`, ...prev].slice(0, 8));
@@ -609,6 +617,7 @@ export default function ZorroGallinaPrototype() {
         return;
       }
 
+      mostrarMovimientoVisible(currentSelected, id, "zorro", move.type);
       const nextFoxes = foxes.map((pos) => (pos === currentSelected ? id : pos));
 
       if (move.type === "capture") {
@@ -677,6 +686,7 @@ export default function ZorroGallinaPrototype() {
     setCapturingFox(null);
     setJuegoIniciado(false);
     setPcMovimientoPreview(null);
+    setMovimientoVisible(null);
     historialPcRef.current = [];
     setMessage("Partida reiniciada. Elige el modo y presiona Comenzar.");
     setMovimientos([]);
@@ -699,6 +709,7 @@ export default function ZorroGallinaPrototype() {
     setForcedPreview(null);
     setCapturingFox(null);
     setPcMovimientoPreview(null);
+    setMovimientoVisible(null);
     historialPcRef.current = [];
     setMovimientos([]);
     setRachaZorro(0);
@@ -725,6 +736,7 @@ export default function ZorroGallinaPrototype() {
     setForcedPreview(null);
     setCapturingFox(null);
     setPcMovimientoPreview(null);
+    setMovimientoVisible(null);
     historialPcRef.current = [];
     setMovimientos([]);
     setRachaZorro(0);
@@ -803,15 +815,22 @@ export default function ZorroGallinaPrototype() {
       );
     }
 
-    if (panelMovil === "movimientos") {
+    if (panelMovil === "reglas") {
       return (
         <div className="space-y-3">
-          <h3 className="text-xl font-black text-amber-100">Movimientos</h3>
-          <div className="space-y-2 max-h-[45dvh] overflow-auto pr-1">
-            {movimientos.length === 0 && <div className="text-sm text-white/45">Aún no hay movimientos registrados.</div>}
-            {movimientos.map((mov, index) => (
-              <div key={index} className="rounded-xl bg-white/5 border border-white/5 px-3 py-2 text-sm text-white/80">{mov}</div>
-            ))}
+          <h3 className="text-xl font-black text-amber-100">Reglas rápidas</h3>
+          <p className="text-sm text-white/60">Este panel reemplaza los movimientos recientes porque ayuda más durante la partida.</p>
+
+          <div className="grid gap-2 text-sm">
+            <div className="rounded-xl bg-black/25 border border-lime-300/15 px-3 py-2">🐔 Las gallinas solo avanzan hacia el gallinero.</div>
+            <div className="rounded-xl bg-black/25 border border-lime-300/15 px-3 py-2">🏠 Ganan si llenan las 9 posiciones del gallinero.</div>
+            <div className="rounded-xl bg-black/25 border border-orange-300/15 px-3 py-2">🦊 El zorro puede avanzar, retroceder y comer saltando.</div>
+            <div className="rounded-xl bg-black/25 border border-orange-300/15 px-3 py-2">🍗 Si el zorro tiene captura, debe comer o queda soplao.</div>
+            <div className="rounded-xl bg-black/25 border border-red-300/15 px-3 py-2">🚫 Si los zorros quedan atrapados sin movimiento, ganan las gallinas.</div>
+          </div>
+
+          <div className="rounded-2xl bg-amber-400/10 border border-amber-300/20 p-4 text-sm text-amber-100/80">
+            Consejo: mira el brillo verde para saber a dónde puede moverse la ficha seleccionada.
           </div>
         </div>
       );
@@ -853,6 +872,53 @@ export default function ZorroGallinaPrototype() {
       </svg>
     );
   };
+
+
+  const MovimientoVisible = () => {
+    if (!movimientoVisible) return null;
+
+    const origen = nodeById[movimientoVisible.from];
+    const destino = nodeById[movimientoVisible.to];
+    if (!origen || !destino) return null;
+
+    const colorLinea = movimientoVisible.piece === "zorro" ? "#fb923c" : "#bef264";
+    const sombra = movimientoVisible.piece === "zorro" ? "rgba(251,146,60,.9)" : "rgba(190,242,100,.9)";
+    const emoji = movimientoVisible.piece === "zorro" ? "🦊" : "🐔";
+
+    return (
+      <div className="absolute inset-0 pointer-events-none z-[45]">
+        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <motion.line
+            x1={origen.x}
+            y1={origen.y}
+            x2={destino.x}
+            y2={destino.y}
+            stroke={colorLinea}
+            strokeWidth="1.15"
+            strokeLinecap="round"
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: [0, 1, 0] }}
+            transition={{ duration: 0.72, ease: "easeInOut" }}
+            style={{ filter: `drop-shadow(0 0 8px ${sombra})` }}
+          />
+        </svg>
+
+        <motion.div
+          key={movimientoVisible.key}
+          className="absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center text-2xl sm:text-4xl"
+          initial={{ left: `${origen.x}%`, top: `${origen.y}%`, scale: 1, opacity: 0.95 }}
+          animate={{ left: `${destino.x}%`, top: `${destino.y}%`, scale: [1, 1.28, 1.08], opacity: [0.95, 1, 0] }}
+          transition={{ duration: 0.72, ease: "easeInOut" }}
+          onAnimationComplete={() => setMovimientoVisible(null)}
+          style={{ filter: `drop-shadow(0 0 16px ${sombra})` }}
+        >
+          <span className="absolute inset-0 rounded-full bg-white/15 border-4 border-white/70 shadow-[0_0_28px_rgba(255,255,255,.55)]" />
+          <span className="relative drop-shadow-lg">{emoji}</span>
+        </motion.div>
+      </div>
+    );
+  };
+
 
   return (
     <div className="h-[100dvh] sm:min-h-screen relative bg-[#100905] text-white flex items-center justify-center p-0 sm:p-5 overflow-hidden sm:overflow-auto">
@@ -959,7 +1025,7 @@ export default function ZorroGallinaPrototype() {
           🦊
         </button>
         <button onClick={() => setPanelMovil("ayuda")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">🎯</button>
-        <button onClick={() => setPanelMovil("movimientos")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">📜</button>
+        <button onClick={() => setPanelMovil("reglas")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">📘</button>
       </div>
 
       <div className="fixed left-1/2 bottom-3 -translate-x-1/2 z-40 sm:hidden flex items-center gap-2 rounded-full bg-black/55 border border-white/15 backdrop-blur-xl px-3 py-2 shadow-2xl">
@@ -1029,6 +1095,7 @@ export default function ZorroGallinaPrototype() {
             </svg>
 
             <PreviewPath />
+            <MovimientoVisible />
 
             {nodes.map((n) => {
               const piece = pieceAt(n.id);
@@ -1213,20 +1280,14 @@ export default function ZorroGallinaPrototype() {
 
           <div className="hidden sm:block rounded-2xl bg-black/25 border border-white/10 p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-black text-white">Movimientos recientes</h3>
-              <span className="text-xs text-white/40">LIVE</span>
+              <h3 className="font-black text-white">Objetivo rápido</h3>
+              <span className="text-xs text-lime-200/70">GUÍA</span>
             </div>
 
-            <div className="space-y-2 max-h-44 overflow-auto pr-1">
-              {movimientos.length === 0 && (
-                <div className="text-sm text-white/40">Aún no hay movimientos registrados.</div>
-              )}
-
-              {movimientos.map((mov, index) => (
-                <div key={index} className="rounded-xl bg-white/5 border border-white/5 px-3 py-2 text-sm text-white/80">
-                  {mov}
-                </div>
-              ))}
+            <div className="grid gap-2 text-sm">
+              <div className="rounded-xl bg-lime-300/10 border border-lime-300/15 px-3 py-2 text-lime-50">🐔 Gallinas: llenar las 9 casillas del gallinero.</div>
+              <div className="rounded-xl bg-orange-300/10 border border-orange-300/15 px-3 py-2 text-orange-50">🦊 Zorros: comer 12 gallinas para ganar.</div>
+              <div className="rounded-xl bg-red-300/10 border border-red-300/15 px-3 py-2 text-red-50">💨 Si un zorro no come teniendo captura, queda soplao.</div>
             </div>
           </div>
 
@@ -1269,11 +1330,5 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
-
-
-
-
-
-
 
 
