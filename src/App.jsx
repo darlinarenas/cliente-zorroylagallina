@@ -798,6 +798,40 @@ export default function ZorroGallinaPrototype() {
         )}
       </AnimatePresence>
 
+      {!juegoIniciado && !panelMovil && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed left-3 right-3 top-3 z-50 rounded-[1.7rem] bg-[#22130b]/95 border border-amber-400/25 shadow-[0_0_45px_rgba(0,0,0,.75)] backdrop-blur-xl p-4 sm:hidden"
+        >
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 className="text-lg font-black text-amber-100">¿Quién serás?</h3>
+              <p className="text-xs text-white/55 mt-1">Elige modo y toca comenzar.</p>
+            </div>
+            <span className="rounded-full bg-lime-300/15 border border-lime-300/25 px-3 py-1 text-[10px] font-black text-lime-200 whitespace-nowrap">
+              SIN INICIAR
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => prepararModo("dos_jugadores")} className={`rounded-2xl px-2 py-3 text-xs font-black border transition-all ${modoJuego === "dos_jugadores" ? "bg-lime-300 text-black border-lime-200" : "bg-white/5 text-white border-white/10"}`}>
+              2 jugadores
+            </button>
+            <button onClick={() => prepararModo("humano_gallinas")} className={`rounded-2xl px-2 py-3 text-xs font-black border transition-all ${modoJuego === "humano_gallinas" ? "bg-lime-300 text-black border-lime-200" : "bg-white/5 text-white border-white/10"}`}>
+              Soy gallina
+            </button>
+            <button onClick={() => prepararModo("humano_zorros")} className={`rounded-2xl px-2 py-3 text-xs font-black border transition-all ${modoJuego === "humano_zorros" ? "bg-orange-300 text-black border-orange-200" : "bg-white/5 text-white border-white/10"}`}>
+              Soy zorro
+            </button>
+          </div>
+
+          <button onClick={comenzarPartida} className="mt-3 w-full rounded-2xl bg-gradient-to-r from-lime-300 to-emerald-400 text-black font-black py-3 shadow-[0_0_28px_rgba(190,242,100,.28)]">
+            Comenzar
+          </button>
+        </motion.div>
+      )}
+
       <div className="fixed left-3 top-3 z-40 sm:hidden flex flex-col gap-2">
         {!soundEnabled && (
           <button onClick={activarSonidos} className="w-12 h-12 rounded-2xl bg-lime-300 text-black font-black shadow-[0_0_25px_rgba(190,242,100,.35)] border border-lime-100">🔊</button>
@@ -832,8 +866,8 @@ export default function ZorroGallinaPrototype() {
         )}
       </AnimatePresence>
 
-      <main className="relative w-full h-full sm:h-auto max-w-7xl grid grid-rows-1 xl:grid-rows-1 xl:grid-cols-[1fr_360px] gap-0 sm:gap-5 items-center">
-        <section className="relative flex h-full items-center justify-center bg-transparent border-0 shadow-none p-0 sm:block sm:h-auto sm:rounded-[2rem] sm:bg-[#22130b]/75 sm:border sm:border-amber-500/25 sm:shadow-[0_25px_90px_rgba(0,0,0,.65)] sm:p-6 sm:backdrop-blur-xl">
+      <main className="relative w-full h-full sm:h-auto max-w-7xl grid grid-rows-1 xl:grid-rows-1 xl:grid-cols-[1fr_360px] gap-0 sm:gap-5 items-center justify-items-center">
+        <section className="relative flex h-full w-full items-center justify-center bg-transparent border-0 shadow-none p-0 sm:block sm:h-auto sm:rounded-[2rem] sm:bg-[#22130b]/75 sm:border sm:border-amber-500/25 sm:shadow-[0_25px_90px_rgba(0,0,0,.65)] sm:p-6 sm:backdrop-blur-xl">
           <div className="hidden sm:flex justify-between items-start mb-4 gap-3">
             <div>
               <div className="hidden sm:inline-flex items-center gap-2 rounded-full bg-lime-300/10 border border-lime-200/20 px-3 py-1 text-xs text-lime-100 mb-2">
@@ -848,7 +882,7 @@ export default function ZorroGallinaPrototype() {
             </div>
           </div>
 
-          <div ref={tableroRef} className="relative mx-auto aspect-square w-[112vw] max-w-[88dvh] sm:w-full sm:max-w-[790px] rounded-[1.4rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
+          <div ref={tableroRef} className="relative mx-auto aspect-square w-[118vw] max-w-[92dvh] sm:w-full sm:max-w-[790px] rounded-[1.4rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#8b5226_0%,#3b2114_54%,#140b06_100%)]" />
             <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_48%,transparent_0%,rgba(0,0,0,.32)_72%)]" />
 
