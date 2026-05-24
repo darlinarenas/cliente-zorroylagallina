@@ -13,6 +13,7 @@ export default function ZorroGallinaPrototype() {
   const [forcedPreview, setForcedPreview] = useState(null);
   const [capturingFox, setCapturingFox] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [panelMovil, setPanelMovil] = useState(null);
 
   const crearSonido = (tipo) => {
     if (!soundEnabled) return;
@@ -662,6 +663,97 @@ export default function ZorroGallinaPrototype() {
   const hensInFarm = hens.filter((pos) => farmCells.includes(pos)).length;
   const gallinasRestantes = hens.length;
 
+  const PanelMovilContenido = () => {
+    if (!panelMovil) return null;
+
+    if (panelMovil === "modo") {
+      return (
+        <div className="space-y-3">
+          <h3 className="text-xl font-black text-amber-100">Modo de partida</h3>
+          <p className="text-sm text-white/60">Elige cómo quieres jugar. La partida no arranca hasta tocar comenzar.</p>
+
+          <div className="grid gap-2">
+            <button onClick={() => prepararModo("dos_jugadores")} className={`rounded-2xl px-4 py-3 font-black border transition-all ${modoJuego === "dos_jugadores" ? "bg-lime-300 text-black border-lime-200" : "bg-white/5 text-white border-white/10"}`}>
+              2 jugadores local
+            </button>
+            <button onClick={() => prepararModo("humano_gallinas")} className={`rounded-2xl px-4 py-3 font-black border transition-all ${modoJuego === "humano_gallinas" ? "bg-lime-300 text-black border-lime-200" : "bg-white/5 text-white border-white/10"}`}>
+              Yo gallinas vs PC
+            </button>
+            <button onClick={() => prepararModo("humano_zorros")} className={`rounded-2xl px-4 py-3 font-black border transition-all ${modoJuego === "humano_zorros" ? "bg-orange-300 text-black border-orange-200" : "bg-white/5 text-white border-white/10"}`}>
+              Yo zorro vs PC
+            </button>
+          </div>
+
+          <button onClick={() => { comenzarPartida(); setPanelMovil(null); }} className={`w-full rounded-2xl px-4 py-3 font-black border transition-all ${juegoIniciado ? "bg-white/10 text-white/60 border-white/10" : "bg-gradient-to-r from-lime-300 to-emerald-400 text-black border-lime-200"}`}>
+            {juegoIniciado ? "Reiniciar y comenzar" : "Comenzar"}
+          </button>
+        </div>
+      );
+    }
+
+    if (panelMovil === "stats") {
+      return (
+        <div className="space-y-3">
+          <h3 className="text-xl font-black text-amber-100">Estadísticas</h3>
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div className="rounded-2xl bg-black/30 p-3 border border-white/10"><div className="text-2xl">🌾</div><b>{hensInFarm}/9</b><p className="text-xs text-white/50">gallinero</p></div>
+            <div className="rounded-2xl bg-black/30 p-3 border border-white/10"><div className="text-2xl">🐔</div><b>{gallinasRestantes}</b><p className="text-xs text-white/50">gallinas</p></div>
+            <div className="rounded-2xl bg-black/30 p-3 border border-white/10"><div className="text-2xl">🦊</div><b>{foxes.length}</b><p className="text-xs text-white/50">zorros</p></div>
+            <div className="rounded-2xl bg-black/30 p-3 border border-white/10"><div className="text-2xl">🍗</div><b>{hensEaten}/12</b><p className="text-xs text-white/50">comidas</p></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-orange-500/10 border border-orange-300/15 p-4"><p className="text-xs text-white/50 uppercase tracking-widest">Racha zorro</p><h3 className="text-3xl font-black text-orange-300">{rachaZorro}</h3></div>
+            <div className="rounded-2xl bg-lime-500/10 border border-lime-300/15 p-4"><p className="text-xs text-white/50 uppercase tracking-widest">Racha gallinas</p><h3 className="text-3xl font-black text-lime-300">{rachaGallinas}</h3></div>
+          </div>
+        </div>
+      );
+    }
+
+    if (panelMovil === "ayuda") {
+      return (
+        <div className="space-y-3">
+          <h3 className="text-xl font-black text-amber-100">Ayudas visuales</h3>
+          <button onClick={() => setMostrarAyudaGallinas((prev) => !prev)} className={`w-full rounded-2xl px-4 py-3 font-black border transition-all ${mostrarAyudaGallinas ? "bg-lime-400/15 border-lime-300/30 text-lime-100" : "bg-red-500/15 border-red-300/30 text-red-100"}`}>
+            {mostrarAyudaGallinas ? "Ayuda gallinas: visible" : "Ayuda gallinas: oculta"}
+          </button>
+          <button onClick={() => setMostrarAyudaZorro((prev) => !prev)} className={`w-full rounded-2xl px-4 py-3 font-black border transition-all ${mostrarAyudaZorro ? "bg-amber-400/15 border-amber-300/30 text-amber-100" : "bg-red-500/15 border-red-300/30 text-red-100"}`}>
+            {mostrarAyudaZorro ? "Ayuda zorro: visible" : "Ayuda zorro: oculta"}
+          </button>
+          <div className="rounded-2xl bg-black/25 border border-white/10 p-4 text-sm text-white/70">
+            Las fichas del turno actual brillan suavemente. Puedes ocultar los movimientos verdes para subir la dificultad.
+          </div>
+        </div>
+      );
+    }
+
+    if (panelMovil === "movimientos") {
+      return (
+        <div className="space-y-3">
+          <h3 className="text-xl font-black text-amber-100">Movimientos</h3>
+          <div className="space-y-2 max-h-[45dvh] overflow-auto pr-1">
+            {movimientos.length === 0 && <div className="text-sm text-white/45">Aún no hay movimientos registrados.</div>}
+            {movimientos.map((mov, index) => (
+              <div key={index} className="rounded-xl bg-white/5 border border-white/5 px-3 py-2 text-sm text-white/80">{mov}</div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        <h3 className="text-xl font-black text-amber-100">Estado</h3>
+        <div className="rounded-2xl bg-black/30 p-4 border border-white/10"><p className="text-sm text-amber-100/85 leading-relaxed">{message}</p></div>
+        <div className="grid gap-2 text-sm">
+          <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas solo avanzan.</div>
+          <div className="rounded-xl bg-black/20 px-3 py-2">🦊 El zorro puede comer varias veces seguidas.</div>
+          <div className="rounded-xl bg-black/20 px-3 py-2">💨 Si no come teniendo captura, queda soplao.</div>
+          <div className="rounded-xl bg-black/20 px-3 py-2">🚫 Si los zorros no pueden moverse, pierden.</div>
+        </div>
+      </div>
+    );
+  };
+
   const PreviewPath = () => {
     if (!forcedPreview) return null;
     const A = nodeById[forcedPreview.fox];
@@ -686,7 +778,7 @@ export default function ZorroGallinaPrototype() {
   };
 
   return (
-    <div className="h-[100dvh] sm:min-h-screen relative bg-[#100905] text-white flex items-start sm:items-center justify-center p-2 sm:p-5 overflow-hidden sm:overflow-auto">
+    <div className="h-[100dvh] sm:min-h-screen relative bg-[#100905] text-white flex items-center justify-center p-0 sm:p-5 overflow-hidden sm:overflow-auto">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_5%,rgba(255,173,64,.24),transparent_34%),radial-gradient(circle_at_85%_85%,rgba(99,255,68,.12),transparent_25%),linear-gradient(135deg,#1b0f08_0%,#080504_100%)]" />
       <div className="absolute inset-0 opacity-[.18] bg-[linear-gradient(90deg,rgba(255,255,255,.13)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.13)_1px,transparent_1px)] bg-[length:38px_38px]" />
       <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-amber-500/20 blur-3xl" />
@@ -706,9 +798,43 @@ export default function ZorroGallinaPrototype() {
         )}
       </AnimatePresence>
 
-      <main className="relative w-full h-full sm:h-auto max-w-7xl grid grid-rows-[auto_1fr] xl:grid-rows-1 xl:grid-cols-[1fr_360px] gap-2 sm:gap-5 items-start sm:items-center">
-        <section className="rounded-[1.5rem] sm:rounded-[2rem] bg-[#22130b]/75 border border-amber-500/25 shadow-[0_25px_90px_rgba(0,0,0,.65)] p-1 sm:p-6 backdrop-blur-xl">
-          <div className="flex justify-between items-start mb-2 sm:mb-4 gap-3">
+      <div className="fixed left-3 top-3 z-40 sm:hidden flex flex-col gap-2">
+        {!soundEnabled && (
+          <button onClick={activarSonidos} className="w-12 h-12 rounded-2xl bg-lime-300 text-black font-black shadow-[0_0_25px_rgba(190,242,100,.35)] border border-lime-100">🔊</button>
+        )}
+        <button onClick={() => setPanelMovil("estado")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">ℹ️</button>
+        <button onClick={() => setPanelMovil("modo")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">🎮</button>
+      </div>
+
+      <div className="fixed right-3 top-3 z-40 sm:hidden flex flex-col gap-2">
+        <button onClick={() => setPanelMovil("stats")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">📊</button>
+        <button onClick={() => setPanelMovil("ayuda")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">🎯</button>
+        <button onClick={() => setPanelMovil("movimientos")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">📜</button>
+      </div>
+
+      <div className="fixed left-1/2 bottom-3 -translate-x-1/2 z-40 sm:hidden flex items-center gap-2 rounded-full bg-black/55 border border-white/15 backdrop-blur-xl px-3 py-2 shadow-2xl">
+        <span className="text-xs text-white/50">Turno</span>
+        <b className="capitalize text-sm text-amber-100">{winner ? "fin" : turn}</b>
+        <button onClick={resetGame} className="ml-2 rounded-full bg-amber-400 text-black px-3 py-1.5 text-xs font-black">Reiniciar</button>
+      </div>
+
+      <AnimatePresence>
+        {panelMovil && (
+          <motion.div className="fixed inset-0 z-50 sm:hidden bg-black/55 backdrop-blur-sm flex items-end p-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div initial={{ y: 80, scale: 0.96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 80, scale: 0.96 }} className="w-full max-h-[78dvh] overflow-auto rounded-[2rem] bg-[#22130b]/95 border border-amber-400/25 shadow-[0_0_60px_rgba(0,0,0,.8)] p-5">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-xs font-black uppercase tracking-[0.25em] text-white/40">Panel</span>
+                <button onClick={() => setPanelMovil(null)} className="w-10 h-10 rounded-full bg-white/10 border border-white/10 font-black">✕</button>
+              </div>
+              <PanelMovilContenido />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <main className="relative w-full h-full sm:h-auto max-w-7xl grid grid-rows-1 xl:grid-rows-1 xl:grid-cols-[1fr_360px] gap-0 sm:gap-5 items-center">
+        <section className="relative flex h-full items-center justify-center bg-transparent border-0 shadow-none p-0 sm:block sm:h-auto sm:rounded-[2rem] sm:bg-[#22130b]/75 sm:border sm:border-amber-500/25 sm:shadow-[0_25px_90px_rgba(0,0,0,.65)] sm:p-6 sm:backdrop-blur-xl">
+          <div className="hidden sm:flex justify-between items-start mb-4 gap-3">
             <div>
               <div className="hidden sm:inline-flex items-center gap-2 rounded-full bg-lime-300/10 border border-lime-200/20 px-3 py-1 text-xs text-lime-100 mb-2">
                 <span className="w-2 h-2 rounded-full bg-lime-300 shadow-[0_0_10px_#bef264]" />
@@ -722,7 +848,7 @@ export default function ZorroGallinaPrototype() {
             </div>
           </div>
 
-          <div ref={tableroRef} className="relative mx-auto aspect-square w-full max-w-[min(99vw,66dvh)] sm:max-w-[790px] rounded-[1.5rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
+          <div ref={tableroRef} className="relative mx-auto aspect-square w-[112vw] max-w-[88dvh] sm:w-full sm:max-w-[790px] rounded-[1.4rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#8b5226_0%,#3b2114_54%,#140b06_100%)]" />
             <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_48%,transparent_0%,rgba(0,0,0,.32)_72%)]" />
 
@@ -807,7 +933,7 @@ export default function ZorroGallinaPrototype() {
           </div>
         </section>
 
-        <aside className="rounded-[1.5rem] sm:rounded-[2rem] bg-[#22130b]/90 border border-amber-500/25 shadow-[0_25px_80px_rgba(0,0,0,.6)] p-3 sm:p-6 space-y-3 sm:space-y-5 backdrop-blur-xl overflow-y-auto max-h-[38dvh] sm:max-h-none">
+        <aside className="hidden sm:block rounded-[2rem] bg-[#22130b]/90 border border-amber-500/25 shadow-[0_25px_80px_rgba(0,0,0,.6)] p-6 space-y-5 backdrop-blur-xl overflow-y-auto max-h-none">
           <div>
             <h2 className="text-xl font-black text-amber-100">Estado del juego</h2>
             <p className="hidden sm:block text-amber-100/65 mt-2 text-sm">Antes de soplar al zorro, se muestra la captura que estaba obligado a hacer. Si los zorros quedan sin movimientos, ganan las gallinas.</p>
@@ -993,6 +1119,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
