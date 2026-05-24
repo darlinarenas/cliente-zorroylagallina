@@ -206,20 +206,20 @@ export default function ZorroGallinaPrototype() {
           const toNode = nodeById[to];
           if (!fromNode || !toNode || isOccupied(to)) return false;
 
-          // Corrección anti-bucle gallina:
-          // Las gallinas avanzan hacia el gallinero. Cuando llegan a la última línea
-          // del gallinero (fila superior), solo pueden hacer un último ajuste lateral
-          // desde el centro hacia una esquina. Al quedar en esquina, ya no tienen más movimientos.
-          const esMovimientoVerticalHaciaGallinero = toNode.row < fromNode.row;
-          const esMovimientoLateral = toNode.row === fromNode.row;
-          const estaEnUltimaLineaGallinero = fromNode.row === 0;
-          const estaEnCentroDeUltimaLinea = estaEnUltimaLineaGallinero && fromNode.col === 3;
+          // Corrección regla final gallina:
+          // En TODO el tablero la gallina puede avanzar como antes: vertical o lateral,
+          // siempre que no retroceda. La restricción especial solo aplica en la última
+          // línea superior del gallinero: desde el centro puede hacer un último ajuste
+          // lateral hacia una esquina, y al quedar en esquina ya no se mueve más.
+          const estaEnLineaFinalSuperior = fromNode.row === 0 && fromNode.col >= 2 && fromNode.col <= 4;
+          const estaEnEsquinaFinalSuperior = estaEnLineaFinalSuperior && (fromNode.col === 2 || fromNode.col === 4);
+          const estaEnCentroFinalSuperior = estaEnLineaFinalSuperior && fromNode.col === 3;
           const destinoEsEsquinaFinal = toNode.row === 0 && (toNode.col === 2 || toNode.col === 4);
 
-          if (esMovimientoVerticalHaciaGallinero) return true;
-          if (esMovimientoLateral && estaEnCentroDeUltimaLinea && destinoEsEsquinaFinal) return true;
+          if (estaEnEsquinaFinalSuperior) return false;
+          if (estaEnCentroFinalSuperior) return destinoEsEsquinaFinal;
 
-          return false;
+          return toNode.row <= fromNode.row;
         })
         .map((to) => ({ type: "move", to }));
     }
@@ -335,18 +335,19 @@ export default function ZorroGallinaPrototype() {
           const toNode = nodeById[to];
           if (!fromNode || !toNode || isOccupied(to)) return false;
 
-          // Misma regla que el jugador humano: avanzar hacia el gallinero,
-          // y en la última línea solo un ajuste lateral desde el centro a una esquina.
-          const esMovimientoVerticalHaciaGallinero = toNode.row < fromNode.row;
-          const esMovimientoLateral = toNode.row === fromNode.row;
-          const estaEnUltimaLineaGallinero = fromNode.row === 0;
-          const estaEnCentroDeUltimaLinea = estaEnUltimaLineaGallinero && fromNode.col === 3;
+          // Misma regla que el jugador humano:
+          // en el resto del tablero la gallina puede avanzar o moverse lateralmente
+          // sin retroceder; la regla de quedarse quieta solo aplica en las esquinas
+          // de la línea final superior del gallinero.
+          const estaEnLineaFinalSuperior = fromNode.row === 0 && fromNode.col >= 2 && fromNode.col <= 4;
+          const estaEnEsquinaFinalSuperior = estaEnLineaFinalSuperior && (fromNode.col === 2 || fromNode.col === 4);
+          const estaEnCentroFinalSuperior = estaEnLineaFinalSuperior && fromNode.col === 3;
           const destinoEsEsquinaFinal = toNode.row === 0 && (toNode.col === 2 || toNode.col === 4);
 
-          if (esMovimientoVerticalHaciaGallinero) return true;
-          if (esMovimientoLateral && estaEnCentroDeUltimaLinea && destinoEsEsquinaFinal) return true;
+          if (estaEnEsquinaFinalSuperior) return false;
+          if (estaEnCentroFinalSuperior) return destinoEsEsquinaFinal;
 
-          return false;
+          return toNode.row <= fromNode.row;
         })
         .map((to) => ({ type: "move", from: gallina, to }))
     );
@@ -841,7 +842,7 @@ export default function ZorroGallinaPrototype() {
         <h3 className="text-xl font-black text-amber-100">Estado</h3>
         <div className="rounded-2xl bg-black/30 p-4 border border-white/10"><p className="text-sm text-amber-100/85 leading-relaxed">{message}</p></div>
         <div className="grid gap-2 text-sm">
-          <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas solo avanzan.</div>
+          <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas avanzan sin retroceder; arriba, en la esquina final, se quedan quietas.</div>
           <div className="rounded-xl bg-black/20 px-3 py-2">🦊 El zorro puede comer varias veces seguidas.</div>
           <div className="rounded-xl bg-black/20 px-3 py-2">💨 Si no come teniendo captura, queda soplao.</div>
           <div className="rounded-xl bg-black/20 px-3 py-2">🚫 Si los zorros no pueden moverse, pierden.</div>
@@ -970,6 +971,28 @@ export default function ZorroGallinaPrototype() {
           </div>
 
           <button onClick={comenzarPartida} className="mt-3 w-full rounded-2xl bg-gradient-to-r from-lime-300 to-emerald-400 text-black font-black py-3 shadow-[0_0_28px_rgba(190,242,100,.28)]">
+            Comenzar
+          </button>
+        </motion.div>
+      )}
+
+      {!juegoIniciado && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="hidden sm:flex fixed left-1/2 top-3 z-50 -translate-x-1/2 items-center gap-2 rounded-full bg-[#22130b]/95 border border-amber-400/25 shadow-[0_0_45px_rgba(0,0,0,.65)] backdrop-blur-xl px-3 py-2"
+        >
+          <span className="px-3 text-sm font-black text-amber-100 whitespace-nowrap">¿Quién serás?</span>
+          <button onClick={() => prepararModo("dos_jugadores")} className={`rounded-full px-4 py-2 text-sm font-black border transition-all ${modoJuego === "dos_jugadores" ? "bg-lime-300 text-black border-lime-200" : "bg-white/5 text-white border-white/10"}`}>
+            2 jugadores
+          </button>
+          <button onClick={() => prepararModo("humano_gallinas")} className={`rounded-full px-4 py-2 text-sm font-black border transition-all ${modoJuego === "humano_gallinas" ? "bg-lime-300 text-black border-lime-200" : "bg-white/5 text-white border-white/10"}`}>
+            Soy gallina
+          </button>
+          <button onClick={() => prepararModo("humano_zorros")} className={`rounded-full px-4 py-2 text-sm font-black border transition-all ${modoJuego === "humano_zorros" ? "bg-orange-300 text-black border-orange-200" : "bg-white/5 text-white border-white/10"}`}>
+            Soy zorro
+          </button>
+          <button onClick={comenzarPartida} className="rounded-full bg-gradient-to-r from-lime-300 to-emerald-400 text-black font-black px-5 py-2 shadow-[0_0_24px_rgba(190,242,100,.25)]">
             Comenzar
           </button>
         </motion.div>
@@ -1307,7 +1330,7 @@ export default function ZorroGallinaPrototype() {
           <div className="hidden sm:block rounded-2xl bg-amber-500/10 border border-amber-400/20 p-4">
             <h3 className="font-bold text-amber-100">Reglas activas</h3>
             <div className="mt-3 grid gap-2 text-sm">
-              <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas solo avanzan.</div>
+              <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas avanzan sin retroceder; arriba, en la esquina final, se quedan quietas.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🦊 El zorro puede comer varias veces seguidas.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🎯 Puedes ocultar la ayuda visual de gallinas y zorros para subir la dificultad.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">✨ Las fichas del turno actual brillan suavemente.</div>
@@ -1330,5 +1353,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
+
 
 
