@@ -713,6 +713,7 @@ export default function ZorroGallinaPrototype() {
       return (
         <div className="space-y-3">
           <h3 className="text-xl font-black text-amber-100">Ayudas visuales</h3>
+          <p className="text-sm text-white/55">También las tienes a mano en los botones laterales: 🐔 y 🦊.</p>
           <button onClick={() => setMostrarAyudaGallinas((prev) => !prev)} className={`w-full rounded-2xl px-4 py-3 font-black border transition-all ${mostrarAyudaGallinas ? "bg-lime-400/15 border-lime-300/30 text-lime-100" : "bg-red-500/15 border-red-300/30 text-red-100"}`}>
             {mostrarAyudaGallinas ? "Ayuda gallinas: visible" : "Ayuda gallinas: oculta"}
           </button>
@@ -833,11 +834,15 @@ export default function ZorroGallinaPrototype() {
       )}
 
       <div className="fixed left-3 top-3 z-40 sm:hidden flex flex-col gap-2">
-        {!soundEnabled && (
-          <button onClick={activarSonidos} className="w-12 h-12 rounded-2xl bg-lime-300 text-black font-black shadow-[0_0_25px_rgba(190,242,100,.35)] border border-lime-100">🔊</button>
-        )}
-        <button onClick={() => setPanelMovil("estado")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">ℹ️</button>
-        <button onClick={() => setPanelMovil("modo")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">🎮</button>
+        <button
+          onClick={activarSonidos}
+          className={`w-12 h-12 rounded-2xl font-black backdrop-blur-xl border transition-all ${soundEnabled ? "bg-lime-300 text-black border-lime-100 shadow-[0_0_25px_rgba(190,242,100,.35)]" : "bg-black/55 text-lime-100 border-lime-300/25 shadow-[0_0_18px_rgba(190,242,100,.12)]"}`}
+          title={soundEnabled ? "Sonidos activados" : "Activar sonidos"}
+        >
+          {soundEnabled ? "🔊" : "🔈"}
+        </button>
+        <button onClick={() => setPanelMovil("estado")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">ℹ️</button>
+        <button onClick={() => setPanelMovil("modo")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">🎮</button>
       </div>
 
       {juegoIniciado && !panelMovil && (
@@ -862,9 +867,23 @@ export default function ZorroGallinaPrototype() {
       )}
 
       <div className="fixed right-3 top-3 z-40 sm:hidden flex flex-col gap-2">
-        <button onClick={() => setPanelMovil("stats")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">📊</button>
-        <button onClick={() => setPanelMovil("ayuda")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">🎯</button>
-        <button onClick={() => setPanelMovil("movimientos")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15">📜</button>
+        <button onClick={() => setPanelMovil("stats")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">📊</button>
+        <button
+          onClick={() => setMostrarAyudaGallinas((prev) => !prev)}
+          className={`w-12 h-12 rounded-2xl font-black backdrop-blur-xl border transition-all ${mostrarAyudaGallinas ? "bg-lime-300/90 text-black border-lime-100 shadow-[0_0_22px_rgba(190,242,100,.35)]" : "bg-red-500/80 text-white border-red-200/70 shadow-[0_0_22px_rgba(239,68,68,.25)]"}`}
+          title={mostrarAyudaGallinas ? "Ayuda gallinas visible" : "Ayuda gallinas oculta"}
+        >
+          🐔
+        </button>
+        <button
+          onClick={() => setMostrarAyudaZorro((prev) => !prev)}
+          className={`w-12 h-12 rounded-2xl font-black backdrop-blur-xl border transition-all ${mostrarAyudaZorro ? "bg-amber-300/90 text-black border-amber-100 shadow-[0_0_22px_rgba(251,191,36,.35)]" : "bg-red-500/80 text-white border-red-200/70 shadow-[0_0_22px_rgba(239,68,68,.25)]"}`}
+          title={mostrarAyudaZorro ? "Ayuda zorro visible" : "Ayuda zorro oculta"}
+        >
+          🦊
+        </button>
+        <button onClick={() => setPanelMovil("ayuda")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">🎯</button>
+        <button onClick={() => setPanelMovil("movimientos")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">📜</button>
       </div>
 
       <div className="fixed left-1/2 bottom-3 -translate-x-1/2 z-40 sm:hidden flex items-center gap-2 rounded-full bg-black/55 border border-white/15 backdrop-blur-xl px-3 py-2 shadow-2xl">
@@ -1174,6 +1193,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
