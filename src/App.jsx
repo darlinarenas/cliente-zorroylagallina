@@ -15,6 +15,13 @@ export default function ZorroGallinaPrototype() {
   const [capturingFox, setCapturingFox] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [panelMovil, setPanelMovil] = useState(null);
+  const [dificultadPc, setDificultadPc] = useState("medio");
+
+  const nivelesDificultad = {
+    facil: { nombre: "Fácil", detalle: "PC más relajada", badge: "🟢" },
+    medio: { nombre: "Medio", detalle: "PC equilibrada", badge: "🟡" },
+    dificil: { nombre: "Difícil", detalle: "PC más agresiva", badge: "🔴" },
+  };
 
   const crearSonido = (tipo) => {
     if (!soundEnabled) return;
@@ -289,6 +296,40 @@ export default function ZorroGallinaPrototype() {
     ].slice(0, 8);
   };
 
+  // Dificultad de la PC:
+  // - Fácil: usa más azar y no siempre escoge la opción más fuerte.
+  // - Medio: mantiene la lógica equilibrada que ya funcionaba.
+  // - Difícil: prioriza cadenas de captura, avance útil, seguridad y presión sobre el rival.
+  const elegirMovimientoPorDificultad = (movimientosEvaluados) => {
+    if (!movimientosEvaluados.length) return null;
+    const ordenados = [...movimientosEvaluados].sort((a, b) => b.score - a.score);
+
+    if (dificultadPc === "facil") {
+      const mitadDebil = ordenados.slice(Math.max(0, Math.floor(ordenados.length / 2)));
+      const grupo = mitadDebil.length ? mitadDebil : ordenados;
+      return grupo[Math.floor(Math.random() * grupo.length)];
+    }
+
+    if (dificultadPc === "dificil") {
+      return ordenados[0];
+    }
+
+    const limite = Math.min(3, ordenados.length);
+    const candidatos = ordenados.slice(0, limite);
+    return candidatos[Math.floor(Math.random() * candidatos.length)];
+  };
+
+  const contarCapturasFuturasParaZorro = (foxId, hensList = hens, foxesList = foxes) => {
+    return getCaptureMovesForFox(foxId, hensList, foxesList).length;
+  };
+
+  const gallinaQuedaEnPeligro = (henId, hensList = hens, foxesList = foxes) => {
+    return foxesList.some((zorro) => {
+      const capturas = getCaptureMovesForFox(zorro, hensList, foxesList);
+      return capturas.some((captura) => captura.over === henId);
+    });
+  };
+
   const obtenerMovimientoComputadoraZorro = () => {
     const zorrosDisponibles = capturingFox ? foxes.filter((zorro) => zorro === capturingFox) : foxes;
     const capturas = zorrosDisponibles.flatMap((zorro) =>
@@ -296,14 +337,18 @@ export default function ZorroGallinaPrototype() {
     );
 
     if (capturas.length > 0) {
-      return capturas
-        .map((movimiento) => {
-          const nextFoxes = foxes.map((pos) => (pos === movimiento.from ? movimiento.to : pos));
-          const nextHens = hens.filter((pos) => pos !== movimiento.over);
-          const siguientes = getCaptureMovesForFox(movimiento.to, nextHens, nextFoxes).length;
-          return { ...movimiento, score: 100 + siguientes * 20 };
-        })
-        .sort((a, b) => b.score - a.score)[0];
+      const evaluadas = capturas.map((movimiento) => {
+        const nextFoxes = foxes.map((pos) => (pos === movimiento.from ? movimiento.to : pos));
+        const nextHens = hens.filter((pos) => pos !== movimiento.over);
+        const siguientes = contarCapturasFuturasParaZorro(movimiento.to, nextHens, nextFoxes);
+        const destino = nodeById[movimiento.to];
+        const centro = destino ? -Math.abs(destino.col - 3) * (dificultadPc === "dificil" ? 0.55 : 0.2) : 0;
+        const presion = destino ? destino.row * 0.6 : 0;
+        const bonusDificil = dificultadPc === "dificil" ? siguientes * 32 + presion + centro : siguientes * 20;
+        return { ...movimiento, score: 100 + bonusDificil + Math.random() * (dificultadPc === "dificil" ? 0.08 : 0.45) };
+      });
+
+      return elegirMovimientoPorDificultad(evaluadas);
     }
 
     const movimientosNormales = zorrosDisponibles.flatMap((zorro) =>
@@ -314,27 +359,41 @@ export default function ZorroGallinaPrototype() {
 
     if (movimientosNormales.length === 0) return null;
 
-    return movimientosNormales
-      .map((movimiento) => {
-        const origen = nodeById[movimiento.from];
-        const destino = nodeById[movimiento.to];
-        const avanceHaciaGallinas = destino && origen ? destino.row - origen.row : 0;
-        const opcionesDesdeDestino = connections[movimiento.to]?.filter((to) => !isOccupied(to)).length || 0;
-        const { reversaInmediata, mismoVaivenRepetido } = esMovimientoPcRepetido(movimiento);
+    const evaluadas = movimientosNormales.map((movimiento) => {
+      const origen = nodeById[movimiento.from];
+      const destino = nodeById[movimiento.to];
+      const avanceHaciaGallinas = destino && origen ? destino.row - origen.row : 0;
+      const opcionesDesdeDestino = connections[movimiento.to]?.filter((to) => !isOccupied(to)).length || 0;
+      const { reversaInmediata, mismoVaivenRepetido } = esMovimientoPcRepetido(movimiento);
 
-        // Corrección anti-bucle zorro:
-        // Se penaliza fuerte regresar a la misma casilla anterior y mucho más repetir
-        // el mismo vaivén. Además se premian destinos con más salidas para que el zorro
-        // no se quede pegado entre dos posiciones si tiene alternativas reales.
-        const penalizacionBucle = (reversaInmediata ? 8 : 0) + (mismoVaivenRepetido ? 20 : 0);
-        const movilidad = opcionesDesdeDestino * 0.65;
+      const nextFoxes = foxes.map((pos) => (pos === movimiento.from ? movimiento.to : pos));
+      const capturasFuturas = contarCapturasFuturasParaZorro(movimiento.to, hens, nextFoxes);
+      const centro = destino ? -Math.abs(destino.col - 3) * 0.25 : 0;
 
-        return {
-          ...movimiento,
-          score: avanceHaciaGallinas + movilidad - penalizacionBucle + Math.random() * 0.35,
-        };
-      })
-      .sort((a, b) => b.score - a.score)[0];
+      // Corrección anti-bucle zorro + dificultad:
+      // En difícil, la PC busca quedar cerca de nuevas capturas y evita perder movilidad.
+      const penalizacionBucle = (reversaInmediata ? 8 : 0) + (mismoVaivenRepetido ? 20 : 0);
+      const movilidad = opcionesDesdeDestino * (dificultadPc === "dificil" ? 1.15 : 0.65);
+      const presionCaptura = dificultadPc === "dificil" ? capturasFuturas * 22 : capturasFuturas * 8;
+      const azar = dificultadPc === "dificil" ? Math.random() * 0.08 : Math.random() * 0.35;
+
+      return {
+        ...movimiento,
+        score: avanceHaciaGallinas + movilidad + presionCaptura + centro - penalizacionBucle + azar,
+      };
+    });
+
+    return elegirMovimientoPorDificultad(evaluadas);
+  };
+
+  const checkZorrosAtrapadosSimulado = (foxesList = foxes, hensList = hens) => {
+    if (!foxesList.length) return true;
+
+    return !foxesList.some((zorroId) => {
+      const capturas = getCaptureMovesForFox(zorroId, hensList, foxesList);
+      const movimientosNormales = connections[zorroId]?.filter((to) => !isOccupiedInState(to, hensList, foxesList)) || [];
+      return capturas.length > 0 || movimientosNormales.length > 0;
+    });
   };
 
   const obtenerMovimientoComputadoraGallina = () => {
@@ -364,23 +423,28 @@ export default function ZorroGallinaPrototype() {
 
     if (movimientos.length === 0) return null;
 
-    return movimientos
-      .map((movimiento) => {
-        const origen = nodeById[movimiento.from];
-        const destino = nodeById[movimiento.to];
-        const entraGallinero = farmCells.includes(movimiento.to) ? 30 : 0;
-        const avance = origen && destino ? origen.row - destino.row : 0;
-        const centro = destino ? -Math.abs(destino.col - 3) * 0.2 : 0;
-        const { reversaInmediata, mismoVaivenRepetido } = esMovimientoPcRepetido(movimiento);
-        const penalizacionBucle = (reversaInmediata ? 10 : 0) + (mismoVaivenRepetido ? 25 : 0);
-        const ajusteFinalValido = origen?.row === 0 && origen?.col === 3 && destino?.row === 0 ? 2 : 0;
+    const evaluadas = movimientos.map((movimiento) => {
+      const origen = nodeById[movimiento.from];
+      const destino = nodeById[movimiento.to];
+      const nextHens = hens.map((pos) => (pos === movimiento.from ? movimiento.to : pos));
+      const entraGallinero = farmCells.includes(movimiento.to) ? 30 : 0;
+      const avance = origen && destino ? origen.row - destino.row : 0;
+      const centro = destino ? -Math.abs(destino.col - 3) * (dificultadPc === "dificil" ? 0.65 : 0.2) : 0;
+      const { reversaInmediata, mismoVaivenRepetido } = esMovimientoPcRepetido(movimiento);
+      const penalizacionBucle = (reversaInmediata ? 10 : 0) + (mismoVaivenRepetido ? 25 : 0);
+      const ajusteFinalValido = origen?.row === 0 && origen?.col === 3 && destino?.row === 0 ? 2 : 0;
+      const quedaEnPeligro = gallinaQuedaEnPeligro(movimiento.to, nextHens, foxes);
+      const bloqueaZorro = checkZorrosAtrapadosSimulado(foxes, nextHens) ? 45 : 0;
+      const seguridad = dificultadPc === "dificil" && quedaEnPeligro ? -26 : quedaEnPeligro ? -8 : 5;
+      const azar = dificultadPc === "dificil" ? Math.random() * 0.08 : Math.random() * 0.35;
 
-        return {
-          ...movimiento,
-          score: entraGallinero + avance * 4 + centro + ajusteFinalValido - penalizacionBucle + Math.random() * 0.35,
-        };
-      })
-      .sort((a, b) => b.score - a.score)[0];
+      return {
+        ...movimiento,
+        score: entraGallinero + avance * (dificultadPc === "dificil" ? 6 : 4) + centro + ajusteFinalValido + seguridad + bloqueaZorro - penalizacionBucle + azar,
+      };
+    });
+
+    return elegirMovimientoPorDificultad(evaluadas);
   };
 
   const ejecutarTurnoComputadora = () => {
@@ -619,11 +683,14 @@ export default function ZorroGallinaPrototype() {
     }
 
     if (selectedPiece === "zorro") {
-      const forcedCaptures = foxes.flatMap((fox) => getCaptureMovesForFox(fox).map((m) => ({ ...m, fox })));
-      const selectedFoxCapture = forcedCaptures.find((m) => m.fox === currentSelected);
-      const captureToShow = selectedFoxCapture || forcedCaptures[0];
+      const selectedFoxCaptures = getCaptureMovesForFox(currentSelected).map((m) => ({ ...m, fox: currentSelected }));
+      const captureToShow = selectedFoxCaptures[0];
 
-      if (forcedCaptures.length > 0 && move.type !== "capture") {
+      // Corrección de libertad para escoger zorro:
+      // Si el otro zorro tiene una captura, eso ya no bloquea la pieza que tú elegiste.
+      // La regla de zorro soplao solo aplica al zorro seleccionado cuando ESE zorro podía comer
+      // y el jugador decide moverlo sin capturar.
+      if (selectedFoxCaptures.length > 0 && move.type !== "capture") {
         soplarFox(captureToShow);
         return;
       }
@@ -783,6 +850,21 @@ export default function ZorroGallinaPrototype() {
             </button>
           </div>
 
+          <div className="rounded-2xl bg-black/25 border border-white/10 p-3">
+            <p className="text-xs font-black uppercase tracking-widest text-white/45 mb-2">Complejidad PC</p>
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(nivelesDificultad).map(([key, nivel]) => (
+                <button
+                  key={key}
+                  onClick={() => setDificultadPc(key)}
+                  className={`rounded-xl px-2 py-2 text-xs font-black border transition-all ${dificultadPc === key ? "bg-amber-300 text-black border-amber-100" : "bg-white/5 text-white border-white/10"}`}
+                >
+                  {nivel.badge} {nivel.nombre}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button onClick={() => { comenzarPartida(); setPanelMovil(null); }} className={`w-full rounded-2xl px-4 py-3 font-black border transition-all ${juegoIniciado ? "bg-white/10 text-white/60 border-white/10" : "bg-gradient-to-r from-lime-300 to-emerald-400 text-black border-lime-200"}`}>
             {juegoIniciado ? "Reiniciar y comenzar" : "Comenzar"}
           </button>
@@ -849,7 +931,7 @@ export default function ZorroGallinaPrototype() {
 
     return (
       <div className="space-y-3">
-        <h3 className="text-xl font-black text-amber-100">Estado</h3>
+        <h3 className="text-xl font-black text-amber-100">Estado y reglas rápidas</h3>
         <div className="rounded-2xl bg-black/30 p-4 border border-white/10"><p className="text-sm text-amber-100/85 leading-relaxed">{message}</p></div>
         <div className="grid gap-2 text-sm">
           <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas avanzan sin retroceder; arriba, en la esquina final, se quedan quietas.</div>
@@ -980,6 +1062,18 @@ export default function ZorroGallinaPrototype() {
             </button>
           </div>
 
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {Object.entries(nivelesDificultad).map(([key, nivel]) => (
+              <button
+                key={key}
+                onClick={() => setDificultadPc(key)}
+                className={`rounded-2xl px-2 py-2 text-[11px] font-black border transition-all ${dificultadPc === key ? "bg-amber-300 text-black border-amber-100" : "bg-white/5 text-white border-white/10"}`}
+              >
+                {nivel.badge} {nivel.nombre}
+              </button>
+            ))}
+          </div>
+
           <button onClick={comenzarPartida} className="mt-3 w-full rounded-2xl bg-gradient-to-r from-lime-300 to-emerald-400 text-black font-black py-3 shadow-[0_0_28px_rgba(190,242,100,.28)]">
             Comenzar
           </button>
@@ -1002,6 +1096,16 @@ export default function ZorroGallinaPrototype() {
           <button onClick={() => prepararModo("humano_zorros")} className={`rounded-full px-4 py-2 text-sm font-black border transition-all ${modoJuego === "humano_zorros" ? "bg-orange-300 text-black border-orange-200" : "bg-white/5 text-white border-white/10"}`}>
             Soy zorro
           </button>
+          <span className="px-2 text-xs font-black text-white/45 whitespace-nowrap">Nivel PC</span>
+          {Object.entries(nivelesDificultad).map(([key, nivel]) => (
+            <button
+              key={key}
+              onClick={() => setDificultadPc(key)}
+              className={`rounded-full px-3 py-2 text-xs font-black border transition-all ${dificultadPc === key ? "bg-amber-300 text-black border-amber-100" : "bg-white/5 text-white border-white/10"}`}
+            >
+              {nivel.badge} {nivel.nombre}
+            </button>
+          ))}
           <button onClick={comenzarPartida} className="rounded-full bg-gradient-to-r from-lime-300 to-emerald-400 text-black font-black px-5 py-2 shadow-[0_0_24px_rgba(190,242,100,.25)]">
             Comenzar
           </button>
@@ -1058,7 +1162,6 @@ export default function ZorroGallinaPrototype() {
           🦊
         </button>
         <button onClick={() => setPanelMovil("ayuda")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">🎯</button>
-        <button onClick={() => setPanelMovil("reglas")} className="w-12 h-12 rounded-2xl bg-black/55 text-white font-black backdrop-blur-xl border border-white/15 shadow-[0_0_18px_rgba(0,0,0,.35)]">📘</button>
       </div>
 
       <div className="fixed left-1/2 bottom-3 -translate-x-1/2 z-40 sm:hidden flex items-center gap-2 rounded-full bg-black/55 border border-white/15 backdrop-blur-xl px-3 py-2 shadow-2xl">
@@ -1240,6 +1343,24 @@ export default function ZorroGallinaPrototype() {
               </button>
             </div>
 
+            <div className="mt-3 rounded-2xl bg-black/25 border border-white/10 p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <p className="text-xs font-black uppercase tracking-widest text-white/45">Complejidad PC</p>
+                <span className="text-xs text-amber-100/70">{nivelesDificultad[dificultadPc].detalle}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(nivelesDificultad).map(([key, nivel]) => (
+                  <button
+                    key={key}
+                    onClick={() => setDificultadPc(key)}
+                    className={`rounded-xl px-2 py-2 text-xs font-black border transition-all ${dificultadPc === key ? "bg-amber-300 text-black border-amber-100 shadow-[0_0_18px_rgba(251,191,36,.25)]" : "bg-white/5 text-white border-white/10"}`}
+                  >
+                    {nivel.badge} {nivel.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               onClick={comenzarPartida}
               className={`mt-3 w-full rounded-2xl px-4 py-3 font-black border transition-all ${juegoIniciado ? "bg-white/10 text-white/60 border-white/10" : "bg-gradient-to-r from-lime-300 to-emerald-400 text-black border-lime-200 shadow-[0_0_28px_rgba(190,242,100,.28)]"}`}
@@ -1247,7 +1368,7 @@ export default function ZorroGallinaPrototype() {
               {juegoIniciado ? "Partida en curso" : "Comenzar"}
             </button>
 
-            <p className="mt-3 text-xs text-white/45">La computadora es simple: captura si puede, sigue capturando si tiene cadena y si no, hace un movimiento válido.</p>
+            <p className="mt-3 text-xs text-white/45">La PC ahora tiene 3 niveles: fácil para practicar, medio equilibrado y difícil más agresivo.</p>
           </div>
 
           {warningOneFox && !winner && (
@@ -1376,6 +1497,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
