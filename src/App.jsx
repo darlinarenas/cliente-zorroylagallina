@@ -158,6 +158,11 @@ export default function ZorroGallinaPrototype() {
   // los zorros queden visualmente de su lado.
   const tableroInvertido = modoJuego === "humano_zorros";
 
+  // Nota:
+  // El tablero físico se rota cuando el jugador elige zorros,
+  // pero los textos, modales y piezas visibles se contra-rotan
+  // para que siempre se lean correctamente desde la vista del usuario.
+
   // Muestra una ficha fantasma viajando entre origen y destino para que el movimiento no se vea brusco.
   const mostrarMovimientoVisible = (from, to, piece, type = "move") => {
     if (!from || !to || !piece) return;
@@ -911,7 +916,7 @@ export default function ZorroGallinaPrototype() {
 
         <motion.div
           key={movimientoVisible.key}
-          className="absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center text-2xl sm:text-4xl"
+          className={`absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center text-2xl sm:text-4xl ${tableroInvertido ? "-rotate-180" : "rotate-0"}`}
           initial={{ left: `${origen.x}%`, top: `${origen.y}%`, scale: 1, opacity: 0.95 }}
           animate={{ left: `${destino.x}%`, top: `${destino.y}%`, scale: [1, 1.28, 1.08], opacity: [0.95, 1, 0] }}
           transition={{ duration: 0.72, ease: "easeInOut" }}
@@ -1167,7 +1172,7 @@ export default function ZorroGallinaPrototype() {
                 animate={{ opacity: 1 }}
                 className="absolute inset-0 bg-black/65 backdrop-blur-sm flex items-center justify-center p-6 z-50"
               >
-                <motion.div initial={{ scale: 0.82, y: 20 }} animate={{ scale: 1, y: 0 }} className="rounded-[2rem] bg-gradient-to-br from-amber-300 to-amber-600 text-black p-8 text-center shadow-2xl border-4 border-white/50 max-w-md">
+                <motion.div initial={{ scale: 0.82, y: 20 }} animate={{ scale: 1, y: 0 }} className={`rounded-[2rem] bg-gradient-to-br from-amber-300 to-amber-600 text-black p-8 text-center shadow-2xl border-4 border-white/50 max-w-md transition-transform duration-700 ${tableroInvertido ? "-rotate-180" : "rotate-0"}`}>
                   <div className="text-6xl mb-3">{winner === "gallinas" ? "🐔" : "🦊"}</div>
                   <h2 className="text-3xl font-black">Ganaron las {winner}</h2>
                   <p className="mt-2 font-bold">{winner === "gallinas" ? "Llenaron el gallinero o soplaron a los dos zorros." : "Se comieron 12 gallinas."}</p>
@@ -1371,6 +1376,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
