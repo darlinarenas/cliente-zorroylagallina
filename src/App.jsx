@@ -153,6 +153,11 @@ export default function ZorroGallinaPrototype() {
   const [pcMovimientoPreview, setPcMovimientoPreview] = useState(null);
   const [movimientoVisible, setMovimientoVisible] = useState(null);
 
+  // Voltea el tablero dependiendo del lado elegido por el jugador.
+  // Si el usuario juega con zorros, el tablero se invierte para que
+  // los zorros queden visualmente de su lado.
+  const tableroInvertido = modoJuego === "humano_zorros";
+
   // Muestra una ficha fantasma viajando entre origen y destino para que el movimiento no se vea brusco.
   const mostrarMovimientoVisible = (from, to, piece, type = "move") => {
     if (!from || !to || !piece) return;
@@ -1087,7 +1092,7 @@ export default function ZorroGallinaPrototype() {
             </div>
           </div>
 
-          <div ref={tableroRef} className="relative mx-auto aspect-square w-[98vw] max-w-[calc(100dvh-7.4rem)] sm:w-full sm:max-w-[790px] rounded-[1.4rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none">
+          <div ref={tableroRef} className={`relative mx-auto aspect-square w-[98vw] max-w-[calc(100dvh-7.4rem)] sm:w-full sm:max-w-[790px] rounded-[1.4rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none transition-transform duration-700 ${tableroInvertido ? "rotate-180" : "rotate-0"}` }>
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#8b5226_0%,#3b2114_54%,#140b06_100%)]" />
             <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_48%,transparent_0%,rgba(0,0,0,.32)_72%)]" />
 
@@ -1144,7 +1149,7 @@ export default function ZorroGallinaPrototype() {
                   onDragStart={() => iniciarArrastre(n.id)}
                   onDragEnd={(_, info) => terminarArrastre(info)}
                   onClick={() => selectOrMove(n.id)}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center font-black transition-all z-20 ${isSelected ? "ring-4 ring-yellow-300 scale-110 z-30" : ""} ${isValidTarget || isForcedLanding ? "ring-4 ring-lime-300 z-30" : ""} ${isForcedHen ? "ring-4 ring-red-500 z-30" : ""} ${isPcFrom ? "ring-4 ring-sky-300 z-40" : ""} ${isPcTo ? "ring-4 ring-cyan-300 z-40" : ""} ${isTurnPiece ? turn === "gallinas" ? "drop-shadow-[0_0_18px_rgba(190,242,100,.75)]" : "drop-shadow-[0_0_20px_rgba(251,146,60,.85)]" : ""}`}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center font-black transition-all z-20 ${tableroInvertido ? "-rotate-180" : "rotate-0"} ${isSelected ? "ring-4 ring-yellow-300 scale-110 z-30" : ""} ${isValidTarget || isForcedLanding ? "ring-4 ring-lime-300 z-30" : ""} ${isForcedHen ? "ring-4 ring-red-500 z-30" : ""} ${isPcFrom ? "ring-4 ring-sky-300 z-40" : ""} ${isPcTo ? "ring-4 ring-cyan-300 z-40" : ""} ${isTurnPiece ? turn === "gallinas" ? "drop-shadow-[0_0_18px_rgba(190,242,100,.75)]" : "drop-shadow-[0_0_20px_rgba(251,146,60,.85)]" : ""}`}
                   style={{ left: `${n.x}%`, top: `${n.y}%` }}
                   title={`Posición ${n.id}`}
                 >
@@ -1366,5 +1371,6 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 

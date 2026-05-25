@@ -1,0 +1,379 @@
+MÁSTER DEL JUEGO: EL ZORRO Y LA GALLINA
+Fecha de actualización: 2026-05-24
+Archivo base revisado: App(3).jsx
+Cantidad aproximada de líneas del archivo actual: 1369
+
+============================================================
+1. ESTADO ACTUAL DEL JUEGO
+============================================================
+
+El juego ya está en una versión jugable y estable para uso personal, pruebas y partidas locales.
+
+Está desarrollado en React dentro de un componente principal llamado:
+
+ZorroGallinaPrototype
+
+Actualmente funciona como un prototipo avanzado en un solo archivo App.jsx / App(3).jsx, usando React, hooks y Framer Motion para animaciones.
+
+El juego incluye:
+
+- Tablero visual en forma de cruz.
+- 20 gallinas.
+- 2 zorros.
+- 33 posiciones aproximadas generadas por coordenadas.
+- Líneas reales de conexión entre posiciones.
+- Gallinero en la zona superior del tablero.
+- Turnos entre gallinas y zorros.
+- Modo 2 jugadores local.
+- Modo humano gallinas vs PC.
+- Modo humano zorro vs PC.
+- Botón de comenzar partida.
+- Botón de reiniciar.
+- Sonidos generados por Web Audio API.
+- Animaciones visuales de movimiento.
+- Estadísticas visibles.
+- Ayudas visuales activables/desactivables.
+- Panel de reglas rápidas.
+- Firma profesional:
+  CEO Darling Arenas
+  Ingeniero de Sistemas
+
+============================================================
+2. REGLAS PRINCIPALES IMPLEMENTADAS
+============================================================
+
+GALLINAS
+
+- Las gallinas solo pueden avanzar hacia el gallinero.
+- No pueden retroceder.
+- Pueden moverse siguiendo las conexiones reales del tablero.
+- El objetivo de las gallinas es llenar las 9 posiciones del gallinero.
+- Cuando hay 9 gallinas en el gallinero, ganan las gallinas.
+
+REGLA ESPECIAL FINAL DE LA GALLINA
+
+- La regla especial solo aplica en la línea superior del gallinero.
+- En esa zona final, cuando una gallina llega al centro superior, puede hacer un último ajuste lateral hacia una esquina.
+- Cuando queda en una esquina superior del gallinero, ya no se mueve más.
+- Esta regla NO debe bloquear movimientos normales en el resto del tablero.
+
+ZORROS
+
+- Los zorros pueden avanzar y retroceder.
+- Los zorros pueden moverse por las conexiones reales del tablero.
+- El zorro come saltando sobre una gallina y cayendo en una posición libre detrás de ella.
+- Si el zorro tiene una captura disponible, está obligado a comer.
+- Si el jugador mueve el zorro sin comer teniendo captura disponible, el zorro queda “soplao”.
+- Si un zorro come y desde su nueva posición puede seguir comiendo, continúa el turno del mismo zorro.
+- Los zorros ganan al comerse 12 gallinas.
+- Las gallinas también pueden ganar si los zorros quedan atrapados sin movimientos.
+
+============================================================
+3. CORRECCIONES IMPORTANTES YA HECHAS
+============================================================
+
+ANTI-BUCLE DE LA PC
+
+Se agregó historial de movimientos de la PC con:
+
+historialPcRef
+
+Esto permite evitar que el zorro o la gallina de la computadora se queden repitiendo movimientos entre dos casillas, como:
+
+- derecha / izquierda / derecha / izquierda
+- arriba / abajo / arriba / abajo
+
+La lógica penaliza:
+
+- reversa inmediata
+- repetición del mismo vaivén
+- destinos con poca movilidad
+
+También se premian movimientos hacia posiciones con más salidas para que el zorro no se quede pegado si tiene alternativas reales.
+
+ANIMACIÓN DE MOVIMIENTO
+
+Se agregó:
+
+movimientoVisible
+mostrarMovimientoVisible()
+MovimientoVisible()
+
+Esto crea una ficha fantasma que viaja desde la posición origen hasta la posición destino, con línea iluminada y brillo.
+
+Objetivo:
+Que el movimiento del zorro o la gallina no se vea tan brusco o instantáneo.
+
+PANEL DE MOVIMIENTOS
+
+El panel de “movimientos recientes” fue reemplazado por un panel más útil:
+
+Reglas rápidas
+
+Razón:
+El panel de movimientos no aportaba mucho a la partida. Las reglas rápidas ayudan más al jugador mientras prueba o juega.
+
+SELECTOR DE MODO EN PC
+
+Se agregó una barra superior visible en escritorio para escoger:
+
+- 2 jugadores
+- Soy gallina
+- Soy zorro
+- Comenzar
+
+Antes esta selección se veía bien en móvil, pero no aparecía de forma práctica en PC.
+
+FIRMA PROFESIONAL
+
+Se agregó una firma discreta, profesional, no invasiva:
+
+CEO Darling Arenas
+Ingeniero de Sistemas
+
+Ubicada abajo a la izquierda, con una línea lateral elegante, sin círculo ni monograma DA.
+
+============================================================
+4. DISEÑO ACTUAL
+============================================================
+
+El diseño actual tiene un estilo oscuro, cálido y premium:
+
+- Fondo marrón/negro cálido.
+- Tablero iluminado con tonos madera/naranja.
+- Gallinero resaltado en la parte superior.
+- Fichas con emojis:
+  - Zorro: 🦊
+  - Gallina: 🐔
+- Brillos verdes para gallinas.
+- Brillos naranjas para zorros.
+- Indicadores visuales de movimientos válidos.
+- Animación para captura obligatoria.
+- Alerta visual de “ZORRO SOPLAO”.
+- Pantalla final de victoria.
+- Diseño responsive para móvil y escritorio.
+- Botones flotantes en móvil.
+- Panel lateral en escritorio.
+
+============================================================
+5. SONIDOS ACTUALES
+============================================================
+
+Los sonidos se generan con Web Audio API.
+
+Tipos actuales:
+
+- mover
+- comer
+- soplado
+- victoria
+
+Importante:
+Los sonidos necesitan activarse con botón porque los navegadores bloquean audio automático si el usuario no interactúa primero.
+
+============================================================
+6. MODO DE JUEGO ACTUAL
+============================================================
+
+MODOS DISPONIBLES
+
+1. 2 jugadores local
+   - Una persona mueve gallinas.
+   - Otra persona mueve zorros.
+   - Ambos juegan en el mismo equipo/dispositivo.
+
+2. Yo gallinas vs PC
+   - El humano juega con gallinas.
+   - La computadora juega con zorros.
+
+3. Yo zorro vs PC
+   - El humano juega con zorros.
+   - La computadora juega con gallinas.
+
+IA ACTUAL
+
+La computadora es simple/intermedia.
+
+Prioridades actuales:
+
+- Si el zorro puede comer, come.
+- Si puede seguir comiendo, continúa.
+- Evita repetir movimientos en bucle.
+- Busca movimientos con mejor movilidad.
+- Las gallinas buscan avanzar al gallinero.
+
+============================================================
+7. ESTADO DE NEGOCIO CONVERSADO
+============================================================
+
+Conversamos que este juego sí puede convertirse en un producto, pero por ahora lo usarás solo tú para jugarlo y probarlo.
+
+Recomendación técnica clara:
+
+NO migrarlo a Python para el juego visual.
+
+La mejor ruta futura es:
+
+React + Vite en Visual Studio Code
+
+Razón:
+
+- Ya está hecho en React.
+- Es visual, interactivo y web.
+- Se puede subir fácil a Vercel.
+- Se puede compartir por link.
+- Se puede convertir en PWA o juego web.
+- React permite escalar mejor la interfaz, sonidos, animaciones, rankings, skins y menús.
+
+Python podría servir después para:
+
+- Backend.
+- Ranking.
+- Estadísticas.
+- Torneos.
+- IA más avanzada.
+- Panel administrativo.
+
+Pero el juego principal debe seguir en React.
+
+============================================================
+8. RUTA FUTURA RECOMENDADA
+============================================================
+
+FASE 1 — USO PERSONAL / PRUEBAS
+Estado actual.
+
+Objetivo:
+Seguir jugando, detectar errores de reglas, movimientos, experiencia y balance.
+
+No tocar monetización todavía.
+
+FASE 2 — MIGRAR A PROYECTO REAL
+Cuando se decida continuar:
+
+- Crear proyecto con React + Vite en Visual Studio Code.
+- Pasar el App.jsx actual como base.
+- Instalar dependencias:
+  - react
+  - react-dom
+  - framer-motion
+  - vite
+  - tailwind si se usa en entorno real
+- Separar el código en componentes:
+  - Board.jsx
+  - Piece.jsx
+  - Sidebar.jsx
+  - MobileControls.jsx
+  - GameLogic.js
+  - sounds.js
+  - rules.js
+- Mantener primero la misma lógica sin reescribir desde cero.
+
+FASE 3 — PUBLICAR ONLINE
+Tiempo estimado: 1 día si el código ya está estable.
+
+Pasos:
+
+- Crear repo GitHub.
+- Subir proyecto.
+- Deploy en Vercel.
+- Probar en PC y celular.
+- Ajustar detalles responsive.
+
+FASE 4 — PULIR PARA PÚBLICO
+Tiempo estimado: 2 a 4 días.
+
+Mejoras:
+
+- Pantalla inicial más atractiva.
+- Nombre oficial del juego.
+- Logo.
+- Menú principal.
+- Mejor pantalla de victoria.
+- Tutorial corto.
+- Botón compartir.
+- Reglas visuales.
+- Sonidos más profesionales.
+- Ajuste de dificultad de la PC.
+- Guardar preferencias del usuario.
+
+FASE 5 — MONETIZACIÓN
+Tiempo estimado inicial: 1 a 2 semanas, dependiendo del tráfico.
+
+Opciones posibles:
+
+- Anuncios.
+- Versión premium sin anuncios.
+- Skins de zorros y gallinas.
+- Tableros especiales.
+- Donaciones.
+- Ranking online.
+- Torneos.
+- Modo reto diario.
+- Compartir partida por link.
+- PWA instalable en celular.
+
+Recomendación sincera:
+Primero conseguir usuarios y validar si engancha. Monetizar antes de tener usuarios no tiene mucho sentido.
+
+============================================================
+9. TIEMPOS ESTIMADOS CONVERSADOS
+============================================================
+
+Migrar a React + Vite:
+1 día aproximado.
+
+Dejarlo presentable para público:
+2 a 4 días.
+
+Monetización básica:
+1 a 2 semanas después de tener una versión pública y algo de tráfico.
+
+El juego fue creado en un día como prototipo funcional, por lo que la base ya está bastante avanzada.
+
+============================================================
+10. PRÓXIMOS PASOS CUANDO SE RETOME
+============================================================
+
+Cuando se decida continuar, el próximo paso recomendado es:
+
+1. Crear proyecto real React + Vite.
+2. Copiar este App(3).jsx como base.
+3. Verificar que funcione igual.
+4. Subirlo a GitHub.
+5. Desplegarlo en Vercel.
+6. Luego separar componentes sin romper la lógica.
+7. Después pulir diseño, marca y monetización.
+
+Importante:
+No reescribir desde cero.
+No cambiar reglas sin probar.
+No romper lo que ya funciona.
+Primero migrar exacto, luego mejorar.
+
+============================================================
+11. REGLA DE TRABAJO PARA ESTE PROYECTO
+============================================================
+
+Cuando se vuelva a trabajar este juego:
+
+- Trabajar siempre sobre el archivo real que el usuario pase.
+- No inventar estructura.
+- No recortar código.
+- No simplificar sin permiso.
+- No eliminar funciones que ya sirven.
+- Entregar archivo completo en TXT para copiar y pegar.
+- Hacer cambios mínimos y seguros.
+- Mantener la lógica actual hasta que se decida una refactorización controlada.
+- Si se migra a React + Vite, primero hacer que funcione igual antes de separar componentes.
+
+============================================================
+12. RESUMEN CORTO
+============================================================
+
+El juego “El Zorro y la Gallina” ya está jugable, con diseño premium, sonidos, reglas, modos de juego, PC básica, anti-bucles, animación visible de movimiento, panel de reglas, responsive y firma profesional.
+
+Por ahora queda como versión personal de prueba.
+
+La ruta futura correcta para convertirlo en negocio es React + Vite en Visual Studio Code, no Python para el juego visual.
+
