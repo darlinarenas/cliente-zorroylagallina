@@ -16,6 +16,11 @@ export default function ZorroGallinaPrototype() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [panelMovil, setPanelMovil] = useState(null);
   const [dificultadPc, setDificultadPc] = useState("medio");
+  const [efectoCaptura, setEfectoCaptura] = useState(null);
+  const [logroActivo, setLogroActivo] = useState(null);
+  const [logrosDesbloqueados, setLogrosDesbloqueados] = useState([]);
+  const logroTimerRef = useRef(null);
+
 
   const nivelesDificultad = {
     facil: { nombre: "Fácil", detalle: "PC más relajada", badge: "🟢" },
@@ -37,8 +42,90 @@ export default function ZorroGallinaPrototype() {
     if (!AudioContextClass) return;
 
     const ctx = new AudioContextClass();
-    const gain = ctx.createGain();
-    const osc = ctx.createOscillator();
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.001, ctx.currentTime);
+    master.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.25);
+    master.connect(ctx.destination);
+
+    const tocarTono = ({ frecuencia = 440, inicio = 0, duracion = 0.16, tipoOsc = "sine", volumen = 0.08, destino = master }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = tipoOsc;
+      osc.frequency.setValueAtTime(frecuencia, ctx.currentTime + inicio);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(40, frecuencia * 0.72), ctx.currentTime + inicio + duracion);
+      gain.gain.setValueAtTime(0.001, ctx.currentTime + inicio);
+      gain.gain.exponentialRampToValueAtTime(volumen, ctx.currentTime + inicio + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + inicio + duracion);
+      osc.connect(gain);
+      gain.connect(destino);
+      osc.start(ctx.currentTime + inicio);
+      osc.stop(ctx.currentTime + inicio + duracion + 0.03);
+    };
+
+    const tocarRuido = ({ inicio = 0, duracion = 0.18, volumen = 0.06, filtro = 1200 }) => {
+      const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duracion));
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      }
+
+      const source = ctx.createBufferSource();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(filtro, ctx.currentTime + inicio);
+      filter.Q.setValueAtTime(4, ctx.currentTime + inicio);
+      gain.gain.setValueAtTime(volumen, ctx.currentTime + inicio);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + inicio + duracion);
+      source.buffer = buffer;
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(master);
+      source.start(ctx.currentTime + inicio);
+      source.stop(ctx.currentTime + inicio + duracion + 0.02);
+    };
+
+    // Sonidos salvajes generados por código:
+    // No dependen de archivos externos. Si más adelante tienes MP3 reales,
+    // podemos conectarlos conservando estos sonidos como respaldo.
+    if (tipo === "zorroSalvaje") {
+      tocarTono({ frecuencia: 150, duracion: 0.42, tipoOsc: "sawtooth", volumen: 0.11 });
+      tocarTono({ frecuencia: 95, inicio: 0.08, duracion: 0.48, tipoOsc: "triangle", volumen: 0.1 });
+      tocarRuido({ inicio: 0.03, duracion: 0.35, volumen: 0.055, filtro: 520 });
+      return;
+    }
+
+    if (tipo === "gallinasAsustadas") {
+      [0, 0.08, 0.15, 0.23].forEach((inicio, index) => {
+        tocarTono({ frecuencia: 760 + index * 90, inicio, duracion: 0.09, tipoOsc: "square", volumen: 0.045 });
+      });
+      tocarRuido({ inicio: 0.02, duracion: 0.26, volumen: 0.03, filtro: 2100 });
+      return;
+    }
+
+    if (tipo === "capturaEpica") {
+      tocarTono({ frecuencia: 115, duracion: 0.26, tipoOsc: "sawtooth", volumen: 0.12 });
+      tocarTono({ frecuencia: 55, inicio: 0.04, duracion: 0.42, tipoOsc: "triangle", volumen: 0.12 });
+      tocarRuido({ inicio: 0, duracion: 0.22, volumen: 0.08, filtro: 760 });
+      tocarTono({ frecuencia: 320, inicio: 0.18, duracion: 0.16, tipoOsc: "square", volumen: 0.045 });
+      return;
+    }
+
+    if (tipo === "suspenso") {
+      tocarTono({ frecuencia: 220, duracion: 0.52, tipoOsc: "triangle", volumen: 0.045 });
+      tocarTono({ frecuencia: 180, inicio: 0.14, duracion: 0.48, tipoOsc: "sine", volumen: 0.035 });
+      return;
+    }
+
+    if (tipo === "logro") {
+      [420, 560, 760].forEach((frecuencia, index) => {
+        tocarTono({ frecuencia, inicio: index * 0.08, duracion: 0.2, tipoOsc: "sine", volumen: 0.055 });
+      });
+      return;
+    }
 
     const presets = {
       mover: { frecuencia: 420, duracion: 0.09, tipo: "sine", volumen: 0.05 },
@@ -48,21 +135,18 @@ export default function ZorroGallinaPrototype() {
     };
 
     const config = presets[tipo] || presets.mover;
-    osc.type = config.tipo;
-    osc.frequency.setValueAtTime(config.frecuencia, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(config.frecuencia * 1.7, ctx.currentTime + config.duracion);
-    gain.gain.setValueAtTime(config.volumen, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + config.duracion);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + config.duracion);
+    tocarTono({
+      frecuencia: config.frecuencia,
+      duracion: config.duracion,
+      tipoOsc: config.tipo,
+      volumen: config.volumen,
+    });
   };
 
   const activarSonidos = () => {
     setSoundEnabled(true);
     setTimeout(() => crearSonido("mover"), 0);
-    setMessage("Sonidos activados. Ahora escucharás movimientos, capturas, zorro soplao y victoria.");
+    setMessage("Sonidos activados. Ahora escucharás rugidos, gallinas asustadas, capturas, zorro soplao y victoria.");
   };
 
   const nodes = useMemo(() => {
@@ -181,6 +265,75 @@ export default function ZorroGallinaPrototype() {
   const mostrarMovimientoVisible = (from, to, piece, type = "move") => {
     if (!from || !to || !piece) return;
     setMovimientoVisible({ from, to, piece, type, key: `${piece}-${from}-${to}-${Date.now()}` });
+  };
+
+  const dispararEfectoCaptura = (from, to, tipo = "captura") => {
+    const origen = nodeById[from];
+    const destino = nodeById[to];
+    if (!origen || !destino) return;
+
+    setEfectoCaptura({
+      from,
+      to,
+      tipo,
+      x: destino.x,
+      y: destino.y,
+      key: `${tipo}-${from}-${to}-${Date.now()}`,
+    });
+
+    setTimeout(() => setEfectoCaptura(null), 850);
+  };
+
+  const desbloquearLogro = (id) => {
+    const logros = {
+      primera_captura: {
+        titulo: "Primer zarpazo",
+        detalle: "El zorro probó sangre por primera vez.",
+        icono: "🦊",
+      },
+      doble_captura: {
+        titulo: "Cadena salvaje",
+        detalle: "El zorro enlazó una racha peligrosa.",
+        icono: "🔥",
+      },
+      zorro_soplao: {
+        titulo: "Zorro soplao",
+        detalle: "La presión del gallinero cobró una víctima.",
+        icono: "💨",
+      },
+      gallinero_medio: {
+        titulo: "Gallinero tomado",
+        detalle: "Las gallinas ya sienten la victoria cerca.",
+        icono: "🌾",
+      },
+      victoria_gallinas: {
+        titulo: "Reinas del gallinero",
+        detalle: "Las gallinas dominaron la granja.",
+        icono: "🐔",
+      },
+      victoria_zorros: {
+        titulo: "Cacería completa",
+        detalle: "Los zorros impusieron respeto.",
+        icono: "👑",
+      },
+    };
+
+    const logro = logros[id];
+    if (!logro) return;
+
+    setLogrosDesbloqueados((prev) => {
+      if (prev.includes(id)) return prev;
+
+      if (logroTimerRef.current) clearTimeout(logroTimerRef.current);
+      setLogroActivo({ id, ...logro, key: `${id}-${Date.now()}` });
+      crearSonido("logro");
+
+      logroTimerRef.current = setTimeout(() => {
+        setLogroActivo(null);
+      }, 2600);
+
+      return [...prev, id];
+    });
   };
 
   const pieceAt = (id) => {
@@ -571,6 +724,7 @@ export default function ZorroGallinaPrototype() {
     if (hensInFarm >= 9) {
       setWinner("gallinas");
       crearSonido("victoria");
+      desbloquearLogro("victoria_gallinas");
       setMessage("¡Las gallinas ganaron! Llenaron el gallinero.");
       return true;
     }
@@ -581,6 +735,7 @@ export default function ZorroGallinaPrototype() {
     if (nextEaten >= 12) {
       setWinner("zorros");
       crearSonido("victoria");
+      desbloquearLogro("victoria_zorros");
       setMessage("¡Los zorros ganaron! Se comieron 12 gallinas.");
       return true;
     }
@@ -631,6 +786,8 @@ export default function ZorroGallinaPrototype() {
       });
 
       crearSonido("soplado");
+      crearSonido("zorroSalvaje");
+      desbloquearLogro("zorro_soplao");
       setSopladoAlert("¡ZORRO SOPLAO!");
       setForcedPreview(null);
       setSelected(null);
@@ -692,6 +849,7 @@ export default function ZorroGallinaPrototype() {
       setRachaZorro(0);
       setRachaGallinas((prev) => prev + 1);
       crearSonido("mover");
+      if (nextHens.filter((pos) => farmCells.includes(pos)).length >= 5) desbloquearLogro("gallinero_medio");
       if (checkGallinaVictory(nextHens)) return;
       if (checkZorrosAtrapados(foxes, nextHens)) return;
       setTurn("zorros");
@@ -723,7 +881,11 @@ export default function ZorroGallinaPrototype() {
         setRachaZorro((prev) => prev + 1);
         setRachaGallinas(0);
         setMovimientos((prev) => [`🦊 Zorro comió en ${id}`, ...prev].slice(0, 8));
-        crearSonido("comer");
+        crearSonido("capturaEpica");
+        setTimeout(() => crearSonido("gallinasAsustadas"), 90);
+        dispararEfectoCaptura(currentSelected, id, "captura");
+        desbloquearLogro("primera_captura");
+        if (rachaZorro + 1 >= 2) desbloquearLogro("doble_captura");
 
         if (checkFoxVictory(nextEaten)) {
           setSelected(null);
@@ -781,9 +943,12 @@ export default function ZorroGallinaPrototype() {
     setJuegoIniciado(false);
     setPcMovimientoPreview(null);
     setMovimientoVisible(null);
+    setEfectoCaptura(null);
+    setLogroActivo(null);
     historialPcRef.current = [];
     setMessage("Partida reiniciada. Elige el modo y presiona Comenzar.");
     setMovimientos([]);
+    setLogrosDesbloqueados([]);
     setRachaZorro(0);
     setRachaGallinas(0);
     setPartidasJugadas((prev) => prev + 1);
@@ -804,8 +969,11 @@ export default function ZorroGallinaPrototype() {
     setCapturingFox(null);
     setPcMovimientoPreview(null);
     setMovimientoVisible(null);
+    setEfectoCaptura(null);
+    setLogroActivo(null);
     historialPcRef.current = [];
     setMovimientos([]);
+    setLogrosDesbloqueados([]);
     setRachaZorro(0);
     setRachaGallinas(0);
     setHens(initialHens);
@@ -831,8 +999,11 @@ export default function ZorroGallinaPrototype() {
     setCapturingFox(null);
     setPcMovimientoPreview(null);
     setMovimientoVisible(null);
+    setEfectoCaptura(null);
+    setLogroActivo(null);
     historialPcRef.current = [];
     setMovimientos([]);
+    setLogrosDesbloqueados([]);
     setRachaZorro(0);
     setRachaGallinas(0);
     setHens(initialHens);
@@ -983,6 +1154,69 @@ export default function ZorroGallinaPrototype() {
   };
 
 
+  const EfectoCapturaVisual = () => {
+    if (!efectoCaptura) return null;
+
+    return (
+      <div className={`absolute inset-0 pointer-events-none z-[55] ${tableroInvertido ? "-rotate-180" : "rotate-0"}`}>
+        <motion.div
+          key={efectoCaptura.key}
+          className="absolute -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${efectoCaptura.x}%`, top: `${efectoCaptura.y}%` }}
+          initial={{ scale: 0.4, opacity: 0 }}
+          animate={{ scale: [0.4, 1.25, 1.8], opacity: [0, 1, 0] }}
+          transition={{ duration: 0.78, ease: "easeOut" }}
+        >
+          <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-orange-400/25 border-4 border-amber-200/80 shadow-[0_0_60px_rgba(251,146,60,.9)]">
+            <div className="absolute inset-3 rounded-full bg-red-500/20 border border-red-200/60 shadow-[0_0_35px_rgba(239,68,68,.8)]" />
+            <div className="absolute inset-0 flex items-center justify-center text-4xl sm:text-6xl drop-shadow-2xl">💥</div>
+          </div>
+        </motion.div>
+
+        {[...Array(10)].map((_, index) => (
+          <motion.span
+            key={`${efectoCaptura.key}-particula-${index}`}
+            className="absolute w-2 h-2 rounded-full bg-amber-200 shadow-[0_0_14px_rgba(251,191,36,.95)]"
+            style={{ left: `${efectoCaptura.x}%`, top: `${efectoCaptura.y}%` }}
+            initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+            animate={{
+              x: Math.cos((Math.PI * 2 * index) / 10) * (28 + index * 2),
+              y: Math.sin((Math.PI * 2 * index) / 10) * (28 + index * 2),
+              opacity: 0,
+              scale: 0.25,
+            }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const LogroDesbloqueado = () => {
+    if (!logroActivo) return null;
+
+    return (
+      <motion.div
+        key={logroActivo.key}
+        initial={{ opacity: 0, y: -22, scale: 0.92 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -18, scale: 0.94 }}
+        className="fixed z-[70] top-[4.7rem] left-1/2 -translate-x-1/2 w-[min(92vw,430px)] rounded-[1.6rem] bg-[#1c1008]/95 border border-amber-300/40 shadow-[0_0_55px_rgba(251,191,36,.3),0_20px_65px_rgba(0,0,0,.75)] backdrop-blur-xl p-4"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-amber-300 text-black flex items-center justify-center text-3xl shadow-[0_0_28px_rgba(251,191,36,.45)]">
+            {logroActivo.icono}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-200/70">Logro desbloqueado</p>
+            <h3 className="text-lg font-black text-amber-100 leading-tight">{logroActivo.titulo}</h3>
+            <p className="text-sm text-white/65 leading-snug">{logroActivo.detalle}</p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
   const MovimientoVisible = () => {
     if (!movimientoVisible) return null;
 
@@ -1048,6 +1282,10 @@ export default function ZorroGallinaPrototype() {
             💨 {sopladoAlert}
           </motion.div>
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {logroActivo && <LogroDesbloqueado />}
       </AnimatePresence>
 
       {!juegoIniciado && !panelMovil && (
@@ -1216,7 +1454,7 @@ export default function ZorroGallinaPrototype() {
             </div>
           </div>
 
-          <div ref={tableroRef} className={`relative mx-auto aspect-square w-[98vw] max-w-[calc(100dvh-7.4rem)] sm:w-full sm:max-w-[790px] rounded-[1.4rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none transition-transform duration-700 ${tableroInvertido ? "rotate-180" : "rotate-0"}` }>
+          <div ref={tableroRef} className={`relative mx-auto aspect-square w-[98vw] max-w-[calc(100dvh-7.4rem)] sm:w-full sm:max-w-[790px] rounded-[1.4rem] sm:rounded-[2rem] bg-[#2b190f] shadow-[inset_0_0_60px_rgba(0,0,0,.75),0_25px_70px_rgba(0,0,0,.5)] overflow-hidden border border-amber-700/40 touch-none transition-transform duration-700 ${efectoCaptura ? "scale-[1.012]" : "scale-100"} ${tableroInvertido ? "rotate-180" : "rotate-0"}` }>
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#8b5226_0%,#3b2114_54%,#140b06_100%)]" />
             <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_48%,transparent_0%,rgba(0,0,0,.32)_72%)]" />
 
@@ -1248,6 +1486,7 @@ export default function ZorroGallinaPrototype() {
 
             <PreviewPath />
             <MovimientoVisible />
+            <EfectoCapturaVisual />
 
             {nodes.map((n) => {
               const piece = pieceAt(n.id);
@@ -1513,6 +1752,8 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
+
 
 
 
