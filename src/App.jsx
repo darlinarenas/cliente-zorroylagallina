@@ -251,86 +251,10 @@ export default function ZorroGallinaPrototype() {
   const [pcMovimientoPreview, setPcMovimientoPreview] = useState(null);
   const [movimientoVisible, setMovimientoVisible] = useState(null);
 
-  // REPLAY SEGURO:
-  // Guarda fotos pequeñas del tablero después de cada jugada.
-  // No altera las reglas ni la lógica principal; solo cambia la vista cuando el replay está activo.
-  const [replayFrames, setReplayFrames] = useState([]);
-  const [replayActivo, setReplayActivo] = useState(false);
-  const [replayIndex, setReplayIndex] = useState(0);
-  const [replayReproduciendo, setReplayReproduciendo] = useState(false);
-  const replayTimerRef = useRef(null);
-
   // Voltea el tablero dependiendo del lado elegido por el jugador.
   // Si el usuario juega con zorros, el tablero se invierte para que
   // los zorros queden visualmente de su lado.
   const tableroInvertido = modoJuego === "humano_zorros";
-
-  const replayFrameActual = replayActivo ? replayFrames[replayIndex] : null;
-  const hensVisuales = replayFrameActual?.hens || hens;
-  const foxesVisuales = replayFrameActual?.foxes || foxes;
-  const hensEatenVisual = replayFrameActual?.hensEaten ?? hensEaten;
-
-  const crearSnapshotReplay = ({
-    label = "Inicio de la partida",
-    tipo = "inicio",
-    from = null,
-    to = null,
-    hensList = hens,
-    foxesList = foxes,
-    eaten = hensEaten,
-    turno = turn,
-  } = {}) => ({
-    label,
-    tipo,
-    from,
-    to,
-    hens: [...hensList],
-    foxes: [...foxesList],
-    hensEaten: eaten,
-    turn: turno,
-    key: `${tipo}-${from || "x"}-${to || "x"}-${Date.now()}-${Math.random()}`,
-  });
-
-  const reiniciarReplay = () => {
-    if (replayTimerRef.current) {
-      clearTimeout(replayTimerRef.current);
-      replayTimerRef.current = null;
-    }
-    setReplayActivo(false);
-    setReplayReproduciendo(false);
-    setReplayIndex(0);
-  };
-
-  const guardarFrameReplay = (frame) => {
-    setReplayFrames((prev) => [...prev, frame].slice(-160));
-  };
-
-  const abrirReplay = () => {
-    if (replayFrames.length < 2) {
-      setMessage("Aún no hay suficientes jugadas para reproducir.");
-      return;
-    }
-    setSelected(null);
-    setReplayIndex(0);
-    setReplayActivo(true);
-    setReplayReproduciendo(true);
-    setMessage("Reproduciendo replay de la partida.");
-  };
-
-  const cerrarReplay = () => {
-    reiniciarReplay();
-    setMessage(winner ? "Replay cerrado. Puedes iniciar una nueva partida." : "Replay cerrado.");
-  };
-
-  const avanzarReplay = () => {
-    setReplayReproduciendo(false);
-    setReplayIndex((prev) => Math.min(prev + 1, replayFrames.length - 1));
-  };
-
-  const retrocederReplay = () => {
-    setReplayReproduciendo(false);
-    setReplayIndex((prev) => Math.max(prev - 1, 0));
-  };
 
   // Nota:
   // El tablero físico se rota cuando el jugador elige zorros,
@@ -413,8 +337,8 @@ export default function ZorroGallinaPrototype() {
   };
 
   const pieceAt = (id) => {
-    if (foxesVisuales.includes(id)) return "zorro";
-    if (hensVisuales.includes(id)) return "gallina";
+    if (foxes.includes(id)) return "zorro";
+    if (hens.includes(id)) return "gallina";
     return null;
   };
 
@@ -737,7 +661,6 @@ export default function ZorroGallinaPrototype() {
   };
 
   const puedeArrastrarFicha = (id) => {
-    if (replayActivo) return false;
     const ficha = pieceAt(id);
     if (!ficha || winner || forcedPreview) return false;
     if (capturingFox && id !== capturingFox) return false;
@@ -846,17 +769,6 @@ export default function ZorroGallinaPrototype() {
       setFoxes((prev) => {
         const nextFoxes = prev.filter((pos) => pos !== captureInfo.fox);
 
-        guardarFrameReplay(crearSnapshotReplay({
-          label: `💨 Zorro soplao en posición ${captureInfo.fox}`,
-          tipo: "soplado",
-          from: captureInfo.fox,
-          to: captureInfo.to,
-          hensList: hens,
-          foxesList: nextFoxes,
-          eaten: hensEaten,
-          turno: "gallinas",
-        }));
-
         if (nextFoxes.length === 1) {
           setWarningOneFox(true);
           setMessage("Advertencia: te queda un solo zorro. Si lo pierdes, perderás la partida.");
@@ -884,10 +796,6 @@ export default function ZorroGallinaPrototype() {
   };
 
   const selectOrMove = (id, selectedOverride = null, movimientoComputadora = false) => {
-    if (replayActivo) {
-      setMessage("Cierra el replay para volver a tocar el tablero.");
-      return;
-    }
     if (winner || forcedPreview) return;
     if (!juegoIniciado && !movimientoComputadora) {
       setMessage("Elige el modo y presiona Comenzar para iniciar la partida.");
@@ -935,16 +843,6 @@ export default function ZorroGallinaPrototype() {
       mostrarMovimientoVisible(currentSelected, id, "gallina", "move");
       const nextHens = hens.map((pos) => (pos === currentSelected ? id : pos));
       setHens(nextHens);
-      guardarFrameReplay(crearSnapshotReplay({
-        label: `🐔 Gallina: ${currentSelected} → ${id}`,
-        tipo: "gallina",
-        from: currentSelected,
-        to: id,
-        hensList: nextHens,
-        foxesList: foxes,
-        eaten: hensEaten,
-        turno: "zorros",
-      }));
       setMovimientos((prev) => [`🐔 Gallina: ${currentSelected} → ${id}`, ...prev].slice(0, 8));
       setSelected(null);
       setCapturingFox(null);
@@ -980,16 +878,6 @@ export default function ZorroGallinaPrototype() {
         setFoxes(nextFoxes);
         setHens(nextHens);
         setHensEaten(nextEaten);
-        guardarFrameReplay(crearSnapshotReplay({
-          label: `🦊 Zorro comió: ${currentSelected} → ${id}`,
-          tipo: "captura",
-          from: currentSelected,
-          to: id,
-          hensList: nextHens,
-          foxesList: nextFoxes,
-          eaten: nextEaten,
-          turno: "gallinas",
-        }));
         setRachaZorro((prev) => prev + 1);
         setRachaGallinas(0);
         setMovimientos((prev) => [`🦊 Zorro comió en ${id}`, ...prev].slice(0, 8));
@@ -1021,16 +909,6 @@ export default function ZorroGallinaPrototype() {
         setMessage("¡El zorro se comió una gallina! Ahora juegan las gallinas.");
       } else {
         setFoxes(nextFoxes);
-        guardarFrameReplay(crearSnapshotReplay({
-          label: `🦊 Zorro: ${currentSelected} → ${id}`,
-          tipo: "zorro",
-          from: currentSelected,
-          to: id,
-          hensList: hens,
-          foxesList: nextFoxes,
-          eaten: hensEaten,
-          turno: "gallinas",
-        }));
         setMovimientos((prev) => [`🦊 Zorro: ${currentSelected} → ${id}`, ...prev].slice(0, 8));
         setCapturingFox(null);
         setRachaZorro(0);
@@ -1054,23 +932,6 @@ export default function ZorroGallinaPrototype() {
     return () => clearTimeout(timer);
   }, [turn, modoJuego, hens, foxes, capturingFox, winner, forcedPreview, juegoIniciado, pcMovimientoPreview]);
 
-  useEffect(() => {
-    if (!replayActivo || !replayReproduciendo) return;
-
-    if (replayIndex >= replayFrames.length - 1) {
-      setReplayReproduciendo(false);
-      return;
-    }
-
-    replayTimerRef.current = setTimeout(() => {
-      setReplayIndex((prev) => Math.min(prev + 1, replayFrames.length - 1));
-    }, 900);
-
-    return () => {
-      if (replayTimerRef.current) clearTimeout(replayTimerRef.current);
-    };
-  }, [replayActivo, replayReproduciendo, replayIndex, replayFrames.length]);
-
   const resetGame = () => {
     setTurn("gallinas");
     setSelected(null);
@@ -1084,8 +945,6 @@ export default function ZorroGallinaPrototype() {
     setMovimientoVisible(null);
     setEfectoCaptura(null);
     setLogroActivo(null);
-    reiniciarReplay();
-    setReplayFrames([]);
     historialPcRef.current = [];
     setMessage("Partida reiniciada. Elige el modo y presiona Comenzar.");
     setMovimientos([]);
@@ -1112,8 +971,6 @@ export default function ZorroGallinaPrototype() {
     setMovimientoVisible(null);
     setEfectoCaptura(null);
     setLogroActivo(null);
-    reiniciarReplay();
-    setReplayFrames([]);
     historialPcRef.current = [];
     setMovimientos([]);
     setLogrosDesbloqueados([]);
@@ -1144,8 +1001,6 @@ export default function ZorroGallinaPrototype() {
     setMovimientoVisible(null);
     setEfectoCaptura(null);
     setLogroActivo(null);
-    reiniciarReplay();
-    setReplayFrames([]);
     historialPcRef.current = [];
     setMovimientos([]);
     setLogrosDesbloqueados([]);
@@ -1155,16 +1010,6 @@ export default function ZorroGallinaPrototype() {
     setFoxes(initialFoxes);
     setHensEaten(0);
     setJuegoIniciado(true);
-    setReplayFrames([
-      crearSnapshotReplay({
-        label: "Inicio de la partida",
-        tipo: "inicio",
-        hensList: initialHens,
-        foxesList: initialFoxes,
-        eaten: 0,
-        turno: "gallinas",
-      }),
-    ]);
     setMessage(modoJuego === "dos_jugadores" ? "Partida iniciada: juegan las gallinas." : "Partida iniciada. Juegan las gallinas primero.");
   };
 
@@ -1222,7 +1067,7 @@ export default function ZorroGallinaPrototype() {
             <div className="rounded-2xl bg-black/30 p-3 border border-white/10"><div className="text-2xl">🌾</div><b>{hensInFarm}/9</b><p className="text-xs text-white/50">gallinero</p></div>
             <div className="rounded-2xl bg-black/30 p-3 border border-white/10"><div className="text-2xl">🐔</div><b>{gallinasRestantes}</b><p className="text-xs text-white/50">gallinas</p></div>
             <div className="rounded-2xl bg-black/30 p-3 border border-white/10"><div className="text-2xl">🦊</div><b>{foxes.length}</b><p className="text-xs text-white/50">zorros</p></div>
-            <div className="rounded-2xl bg-black/30 p-3 border border-white/10"><div className="text-2xl">🍗</div><b>{hensEatenVisual}/12</b><p className="text-xs text-white/50">comidas</p></div>
+            <div className="rounded-2xl bg-black/30 p-3 border border-white/10"><div className="text-2xl">🍗</div><b>{hensEaten}/12</b><p className="text-xs text-white/50">comidas</p></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-orange-500/10 border border-orange-300/15 p-4"><p className="text-xs text-white/50 uppercase tracking-widest">Racha zorro</p><h3 className="text-3xl font-black text-orange-300">{rachaZorro}</h3></div>
@@ -1372,62 +1217,6 @@ export default function ZorroGallinaPrototype() {
     );
   };
 
-  const ReplayControl = () => {
-    if (!replayActivo || replayFrames.length === 0) return null;
-
-    const frame = replayFrames[replayIndex];
-    const progreso = replayFrames.length > 1 ? ((replayIndex + 1) / replayFrames.length) * 100 : 100;
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 18, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 18, scale: 0.96 }}
-        className="fixed z-[85] left-1/2 bottom-[4.6rem] sm:bottom-6 -translate-x-1/2 w-[min(94vw,560px)] rounded-[1.7rem] bg-[#1c1008]/95 border border-amber-300/35 shadow-[0_0_55px_rgba(251,146,60,.25),0_20px_65px_rgba(0,0,0,.75)] backdrop-blur-xl p-4"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-200/65">Replay de la partida</p>
-            <h3 className="text-lg sm:text-xl font-black text-amber-100 leading-tight">{frame?.label || "Reproduciendo jugada"}</h3>
-            <p className="text-xs sm:text-sm text-white/55 mt-1">
-              Jugada {replayIndex + 1} de {replayFrames.length} · Gallinas comidas: {frame?.hensEaten ?? 0}/12
-            </p>
-          </div>
-          <button
-            onClick={cerrarReplay}
-            className="w-10 h-10 rounded-full bg-white/10 border border-white/10 font-black text-white"
-            title="Cerrar replay"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="mt-3 h-2 rounded-full bg-black/45 border border-white/10 overflow-hidden">
-          <motion.div
-            className="h-full bg-gradient-to-r from-amber-300 to-lime-300 shadow-[0_0_16px_rgba(251,191,36,.65)]"
-            animate={{ width: `${progreso}%` }}
-            transition={{ duration: 0.25 }}
-          />
-        </div>
-
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          <button onClick={retrocederReplay} className="rounded-2xl bg-white/10 border border-white/10 px-3 py-2 text-xs sm:text-sm font-black text-white">
-            ◀
-          </button>
-          <button
-            onClick={() => setReplayReproduciendo((prev) => !prev)}
-            className="rounded-2xl bg-amber-300 border border-amber-100 px-3 py-2 text-xs sm:text-sm font-black text-black col-span-2"
-          >
-            {replayReproduciendo ? "Pausar" : "Reproducir"}
-          </button>
-          <button onClick={avanzarReplay} className="rounded-2xl bg-white/10 border border-white/10 px-3 py-2 text-xs sm:text-sm font-black text-white">
-            ▶
-          </button>
-        </div>
-      </motion.div>
-    );
-  };
-
   const MovimientoVisible = () => {
     if (!movimientoVisible) return null;
 
@@ -1497,10 +1286,6 @@ export default function ZorroGallinaPrototype() {
 
       <AnimatePresence>
         {logroActivo && <LogroDesbloqueado />}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {replayActivo && <ReplayControl />}
       </AnimatePresence>
 
       {!juegoIniciado && !panelMovil && (
@@ -1597,7 +1382,7 @@ export default function ZorroGallinaPrototype() {
         <div className="fixed left-[4.35rem] right-[4.35rem] top-3 z-40 sm:hidden grid grid-cols-4 gap-1.5 pointer-events-none">
           <div className="rounded-2xl bg-black/60 border border-white/15 backdrop-blur-xl px-1.5 py-2 text-center shadow-2xl">
             <div className="text-sm leading-none">🍗</div>
-            <b className="text-[11px] leading-none text-amber-100">{hensEatenVisual}/12</b>
+            <b className="text-[11px] leading-none text-amber-100">{hensEaten}/12</b>
           </div>
           <div className="rounded-2xl bg-black/60 border border-orange-300/20 backdrop-blur-xl px-1.5 py-2 text-center shadow-2xl">
             <div className="text-sm leading-none">🔥</div>
@@ -1749,14 +1534,7 @@ export default function ZorroGallinaPrototype() {
                   <div className="text-6xl mb-3">{winner === "gallinas" ? "🐔" : "🦊"}</div>
                   <h2 className="text-3xl font-black">Ganaron las {winner}</h2>
                   <p className="mt-2 font-bold">{winner === "gallinas" ? "Llenaron el gallinero o soplaron a los dos zorros." : "Se comieron 12 gallinas."}</p>
-                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button onClick={abrirReplay} className="rounded-2xl bg-white text-black font-black px-6 py-3 disabled:opacity-50" disabled={replayFrames.length < 2}>
-                      Ver replay
-                    </button>
-                    <button onClick={resetGame} className="rounded-2xl bg-black text-white font-black px-6 py-3">
-                      Nueva partida
-                    </button>
-                  </div>
+                  <button onClick={resetGame} className="mt-5 rounded-2xl bg-black text-white font-black px-6 py-3">Nueva partida</button>
                 </motion.div>
               </motion.div>
             )}
@@ -1917,7 +1695,7 @@ export default function ZorroGallinaPrototype() {
             </div>
             <div className="rounded-2xl bg-black/30 p-3 border border-white/10">
               <div className="text-2xl">🍗</div>
-              <b>{hensEatenVisual}/12</b>
+              <b>{hensEaten}/12</b>
               <p className="text-xs text-white/50">comidas</p>
             </div>
           </div>
@@ -1965,13 +1743,6 @@ export default function ZorroGallinaPrototype() {
             <button onClick={activarSonidos} className={`w-full rounded-2xl font-black py-2.5 sm:py-3 shadow-lg transition-transform hover:scale-[1.01] active:scale-[.98] ${soundEnabled ? "bg-lime-300 text-black shadow-lime-900/20" : "bg-white/10 text-white border border-white/15"}`}>
               {soundEnabled ? "Sonidos activados" : "Activar sonidos"}
             </button>
-            <button
-              onClick={abrirReplay}
-              disabled={replayFrames.length < 2}
-              className="w-full rounded-2xl bg-white/10 text-white border border-white/15 font-black py-2.5 sm:py-3 shadow-lg hover:scale-[1.01] active:scale-[.98] transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Ver replay
-            </button>
             <button onClick={resetGame} className="w-full rounded-2xl bg-gradient-to-r from-amber-300 to-amber-500 text-black font-black py-2.5 sm:py-3 shadow-lg shadow-amber-900/30 hover:scale-[1.01] active:scale-[.98] transition-transform">
               Reiniciar partida
             </button>
@@ -1981,6 +1752,13 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 
