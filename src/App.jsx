@@ -212,7 +212,7 @@ export default function ZorroGallinaPrototype() {
   const activarSonidos = () => {
     setSoundEnabled(true);
     setTimeout(() => crearSonido("mover"), 0);
-    setMessage("Sonidos activados. Ahora escucharás música retro de suspenso, tensión final, rugidos, gallinas asustadas, capturas, zorro soplao y victoria.");
+    setMessage("Sonidos activados. La música de suspenso sonará solo cuando la partida esté cerca de acabarse.");
   };
 
   const nodes = useMemo(() => {
@@ -490,6 +490,20 @@ export default function ZorroGallinaPrototype() {
     });
   };
 
+  const construirHistorialGallinaMovida = (from, to, historial = historialGallinas) => {
+    const historialActual = historial?.[from] || [from];
+    const siguiente = { ...historial };
+    delete siguiente[from];
+    siguiente[to] = historialActual.includes(to) ? historialActual : [...historialActual, to];
+    return siguiente;
+  };
+
+  const construirHistorialSinGallina = (posicion, historial = historialGallinas) => {
+    const siguiente = { ...historial };
+    delete siguiente[posicion];
+    return siguiente;
+  };
+
   const getValidMoves = (id) => {
     const piece = pieceAt(id);
     if (!piece || winner || forcedPreview) return [];
@@ -527,6 +541,43 @@ export default function ZorroGallinaPrototype() {
     }
 
     return [];
+  };
+
+  // Detecta si las gallinas se quedaron sin movimientos válidos.
+  // Nueva regla de empate: si es turno de gallinas y ninguna puede avanzar
+  // ni moverse lateralmente sin repetir casilla, la partida termina empatada.
+  const obtenerMovimientosGallinasEnEstado = (hensList = hens, historial = historialGallinas, foxesList = foxes) => {
+    return hensList.flatMap((gallina) =>
+      (connections[gallina] || [])
+        .filter((to) => {
+          const fromNode = nodeById[gallina];
+          const toNode = nodeById[to];
+          if (!fromNode || !toNode) return false;
+          if (isOccupiedInState(to, hensList, foxesList)) return false;
+          if (toNode.row > fromNode.row) return false;
+
+          const historialDeGallina = historial?.[gallina] || [];
+          if (historialDeGallina.includes(to)) return false;
+
+          return true;
+        })
+        .map((to) => ({ type: "move", from: gallina, to }))
+    );
+  };
+
+  const declararEmpateSinMovimientosGallinas = (nextHens = hens, nextHistorial = historialGallinas, nextFoxes = foxes) => {
+    if (winner || nextHens.length === 0) return false;
+
+    const movimientosGallinas = obtenerMovimientosGallinasEnEstado(nextHens, nextHistorial, nextFoxes);
+
+    if (movimientosGallinas.length > 0) return false;
+
+    setWinner("empate");
+    setSelected(null);
+    setCapturingFox(null);
+    crearSonido("tensionFinal");
+    setMessage("Se acabaron los movimientos de las gallinas. El juego estuvo intenso: es un empate. Pasemos a la segunda ronda para desempatar.");
+    return true;
   };
 
   const selectedMoves = selected ? getValidMoves(selected) : [];
@@ -745,6 +796,7 @@ export default function ZorroGallinaPrototype() {
 
     if (!movimiento) {
       if (turn === "zorros") checkZorrosAtrapados(foxes, hens);
+      if (turn === "gallinas") declararEmpateSinMovimientosGallinas(hens, historialGallinas, foxes);
       return;
     }
 
@@ -1028,8 +1080,10 @@ export default function ZorroGallinaPrototype() {
         }
 
         setCapturingFox(null);
-        setTurn("gallinas");
         setSelected(null);
+        const historialDespuesCaptura = construirHistorialSinGallina(move.over);
+        if (declararEmpateSinMovimientosGallinas(nextHens, historialDespuesCaptura, nextFoxes)) return;
+        setTurn("gallinas");
         setMessage("¡El zorro se comió una gallina! Ahora juegan las gallinas.");
       } else {
         setFoxes(nextFoxes);
@@ -1038,8 +1092,9 @@ export default function ZorroGallinaPrototype() {
         setRachaZorro(0);
         setRachaGallinas(0);
         crearSonido("mover");
-        setTurn("gallinas");
         setSelected(null);
+        if (declararEmpateSinMovimientosGallinas(hens, historialGallinas, nextFoxes)) return;
+        setTurn("gallinas");
         setMessage("Zorro movido. Ahora juegan las gallinas.");
       }
     }
@@ -1055,6 +1110,16 @@ export default function ZorroGallinaPrototype() {
 
     return () => clearTimeout(timer);
   }, [turn, modoJuego, hens, foxes, capturingFox, winner, forcedPreview, juegoIniciado, pcMovimientoPreview]);
+
+  useEffect(() => {
+    if (!juegoIniciado || winner || forcedPreview || pcMovimientoPreview || turn !== "gallinas") return;
+
+    const timer = setTimeout(() => {
+      declararEmpateSinMovimientosGallinas(hens, historialGallinas, foxes);
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [turn, hens, foxes, historialGallinas, juegoIniciado, winner, forcedPreview, pcMovimientoPreview]);
 
   const hensInFarm = hens.filter((pos) => farmCells.includes(pos)).length;
   const gallinasRestantes = hens.length;
@@ -1073,12 +1138,14 @@ export default function ZorroGallinaPrototype() {
       ambienteTimerRef.current = null;
     }
 
-    if (!soundEnabled || !juegoIniciado || winner) return;
+    if (!soundEnabled || !juegoIniciado || winner || !estadoFinalIntenso) return;
 
-    crearSonido(estadoFinalIntenso ? "tensionFinal" : "suspensoProfundo");
+    // La música de suspenso ahora solo aparece cuando el juego está casi por acabarse.
+    // Durante el resto de la partida quedan solo los efectos cortos de movimiento/captura.
+    crearSonido("tensionFinal");
     ambienteTimerRef.current = setInterval(() => {
-      crearSonido(estadoFinalIntenso ? "tensionFinal" : "suspensoProfundo");
-    }, estadoFinalIntenso ? 2300 : 3200);
+      crearSonido("tensionFinal");
+    }, 2300);
 
     return () => {
       if (ambienteTimerRef.current) {
@@ -1704,10 +1771,10 @@ export default function ZorroGallinaPrototype() {
                 className="absolute inset-0 bg-black/65 backdrop-blur-sm flex items-center justify-center p-6 z-50"
               >
                 <motion.div initial={{ scale: 0.82, y: 20 }} animate={{ scale: 1, y: 0 }} className={`rounded-[2rem] bg-gradient-to-br from-amber-300 to-amber-600 text-black p-8 text-center shadow-2xl border-4 border-white/50 max-w-md transition-transform duration-700 ${tableroInvertido ? "-rotate-180" : "rotate-0"}`}>
-                  <div className="text-6xl mb-3">{winner === "gallinas" ? "🐔" : "🦊"}</div>
-                  <p className="text-xs font-black uppercase tracking-[0.28em] text-black/55 mb-2">Título desbloqueado</p>
-                  <h2 className="text-3xl font-black">{obtenerTituloVictoria(winner)}</h2>
-                  <p className="mt-2 font-bold">{winner === "gallinas" ? "Las gallinas dominaron el gallinero." : "Los zorros completaron la cacería."}</p>
+                  <div className="text-6xl mb-3">{winner === "empate" ? "🤝" : winner === "gallinas" ? "🐔" : "🦊"}</div>
+                  <p className="text-xs font-black uppercase tracking-[0.28em] text-black/55 mb-2">{winner === "empate" ? "Final cerrado" : "Título desbloqueado"}</p>
+                  <h2 className="text-3xl font-black">{winner === "empate" ? "Empate salvaje" : obtenerTituloVictoria(winner)}</h2>
+                  <p className="mt-2 font-bold">{winner === "empate" ? "Se acabaron los movimientos. El juego estuvo intenso: pasemos a la segunda ronda para desempatar." : winner === "gallinas" ? "Las gallinas dominaron el gallinero." : "Los zorros completaron la cacería."}</p>
                   <button onClick={resetGame} className="mt-5 rounded-2xl bg-black text-white font-black px-6 py-3">Nueva partida</button>
                 </motion.div>
               </motion.div>
@@ -1939,6 +2006,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
