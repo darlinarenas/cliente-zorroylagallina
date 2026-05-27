@@ -738,6 +738,147 @@ export default function ZorroGallinaPrototype() {
     });
   };
 
+  // IA táctica avanzada de las gallinas:
+  // Estas funciones solo ayudan a evaluar mejor los movimientos de la PC cuando juega con gallinas.
+  // No cambian reglas, tablero, sonidos, animaciones ni flujo visual.
+  const obtenerMovimientosZorroEnEstado = (foxId, hensList = hens, foxesList = foxes) => {
+    const capturas = getCaptureMovesForFox(foxId, hensList, foxesList);
+    const normales = connections[foxId]
+      ?.filter((to) => !isOccupiedInState(to, hensList, foxesList))
+      .map((to) => ({ type: "move", to })) || [];
+
+    return [...capturas, ...normales];
+  };
+
+  const movilidadTotalZorrosEnEstado = (hensList = hens, foxesList = foxes) => {
+    return foxesList.reduce((total, zorro) => {
+      const capturas = getCaptureMovesForFox(zorro, hensList, foxesList).length;
+      const normales = connections[zorro]?.filter((to) => !isOccupiedInState(to, hensList, foxesList)).length || 0;
+      return total + capturas * 2.15 + normales;
+    }, 0);
+  };
+
+  const contarCapturasTotalesZorros = (hensList = hens, foxesList = foxes) => {
+    return foxesList.reduce((total, zorro) => total + getCaptureMovesForFox(zorro, hensList, foxesList).length, 0);
+  };
+
+  const contarRutasEscapeZorros = (hensList = hens, foxesList = foxes) => {
+    return foxesList.reduce((total, zorro) => {
+      const distanciaActual = distanciaAZonaGallinero(zorro);
+      const rutas = connections[zorro]?.filter((to) => {
+        if (isOccupiedInState(to, hensList, foxesList)) return false;
+        const destino = nodeById[to];
+        const origen = nodeById[zorro];
+        if (!destino || !origen) return false;
+
+        // Ruta de escape: casillas que sacan al zorro del centro/gallinero o lo mandan hacia abajo/lateral.
+        const seAlejaDelGallinero = distanciaAZonaGallinero(to) > distanciaActual;
+        const bajaPresion = destino.row > origen.row;
+        const saleALateral = Math.abs(destino.col - 3) > Math.abs(origen.col - 3);
+        return seAlejaDelGallinero || bajaPresion || saleALateral;
+      }).length || 0;
+
+      return total + rutas;
+    }, 0);
+  };
+
+  const evaluarJaulaSobreZorros = (hensList = hens, foxesList = foxes) => {
+    return foxesList.reduce((total, zorro) => {
+      const vecinos = connections[zorro] || [];
+      const grado = Math.max(1, vecinos.length);
+      const vecinosGallina = vecinos.filter((to) => hensList.includes(to)).length;
+      const vecinosOcupados = vecinos.filter((to) => isOccupiedInState(to, hensList, foxesList)).length;
+      const movilidad = obtenerMovimientosZorroEnEstado(zorro, hensList, foxesList).length;
+      const capturas = getCaptureMovesForFox(zorro, hensList, foxesList).length;
+      const presionVecinal = (vecinosGallina / grado) * 34 + (vecinosOcupados / grado) * 16;
+      const encierroReal = movilidad <= 1 ? 54 : movilidad === 2 ? 28 : movilidad === 3 ? 12 : 0;
+      const castigoCaptura = capturas * 18;
+
+      return total + presionVecinal + encierroReal - castigoCaptura;
+    }, 0);
+  };
+
+  const evaluarMuroGallinas = (hensList = hens) => {
+    return hensList.reduce((total, gallina) => {
+      const nodo = nodeById[gallina];
+      if (!nodo) return total;
+
+      const vecinas = connections[gallina]
+        ?.filter((to) => hensList.includes(to))
+        .map((to) => nodeById[to])
+        .filter(Boolean) || [];
+
+      const apoyoHorizontal = vecinas.filter((n) => n.row === nodo.row).length;
+      const apoyoDiagonal = vecinas.filter((n) => Math.abs(n.col - nodo.col) === 1 && Math.abs(n.row - nodo.row) === 1).length;
+      const apoyoFrontal = vecinas.filter((n) => n.row <= nodo.row).length;
+      const zonaUtil = nodo.row <= 3 ? 1.25 : 0.75;
+      const centro = Math.max(0, 3 - Math.abs(nodo.col - 3));
+
+      return total + (apoyoHorizontal * 4.2 + apoyoDiagonal * 3.4 + apoyoFrontal * 2.1 + centro * 1.2) * zonaUtil;
+    }, 0);
+  };
+
+  const evaluarCorteDeLineas = (movimiento, nextHens = hens, nextFoxes = foxes) => {
+    const destino = nodeById[movimiento.to];
+    const origen = nodeById[movimiento.from];
+    if (!destino || !origen) return 0;
+
+    const controlaCentro = destino.col >= 2 && destino.col <= 4 && destino.row <= 3 ? 20 : 0;
+    const cierraEntradaGallinero = farmCells.includes(movimiento.to) ? 18 : 0;
+    const subeLinea = origen.row > destino.row ? 11 : 0;
+    const noAbreHuecoCentral = origen.col >= 2 && origen.col <= 4 && origen.row <= 3 ? -8 : 0;
+
+    const rutasEscapeDespues = contarRutasEscapeZorros(nextHens, nextFoxes);
+    const rutasEscapeAntes = contarRutasEscapeZorros(hens, foxes);
+    const cortaEscape = Math.max(0, rutasEscapeAntes - rutasEscapeDespues) * (pcEsLeyenda ? 15 : pcEsExperta ? 10 : 6);
+
+    return controlaCentro + cierraEntradaGallinero + subeLinea + noAbreHuecoCentral + cortaEscape;
+  };
+
+  const evaluarTrampaGallinas = (movimiento, nextHens = hens, nextFoxes = foxes) => {
+    const movilidadAntes = movilidadTotalZorrosEnEstado(hens, foxes);
+    const movilidadDespues = movilidadTotalZorrosEnEstado(nextHens, nextFoxes);
+    const capturasAntes = contarCapturasTotalesZorros(hens, foxes);
+    const capturasDespues = contarCapturasTotalesZorros(nextHens, nextFoxes);
+    const reduccionMovilidad = Math.max(0, movilidadAntes - movilidadDespues);
+    const reduceCapturas = Math.max(0, capturasAntes - capturasDespues);
+    const aumentaCapturas = Math.max(0, capturasDespues - capturasAntes);
+    const jaula = evaluarJaulaSobreZorros(nextHens, nextFoxes);
+    const muro = evaluarMuroGallinas(nextHens);
+    const corteLineas = evaluarCorteDeLineas(movimiento, nextHens, nextFoxes);
+    const zorrosCasiEncerrados = nextFoxes.filter((zorro) => obtenerMovimientosZorroEnEstado(zorro, nextHens, nextFoxes).length <= 2).length;
+
+    // La trampa no siempre es no dejar captura: a veces una gallina señuelo sirve,
+    // pero solo se permite cuando compensa con encierro, muro o reducción real de movilidad.
+    const permiteCapturaPeligrosa = aumentaCapturas * (pcEsLeyenda ? 34 : pcEsExperta ? 44 : 58);
+    const recompensaEncierro = reduccionMovilidad * (pcEsLeyenda ? 22 : pcEsExperta ? 15 : 9);
+    const recompensaSinCapturas = reduceCapturas * (pcEsLeyenda ? 42 : pcEsExperta ? 29 : 18);
+    const recompensaJaula = jaula * (pcEsLeyenda ? 1.28 : pcEsExperta ? 0.9 : 0.62);
+    const recompensaMuro = muro * (pcEsLeyenda ? 0.62 : pcEsExperta ? 0.42 : 0.28);
+    const recompensaCasiMate = zorrosCasiEncerrados * (pcEsLeyenda ? 58 : pcEsExperta ? 34 : 18);
+
+    return recompensaEncierro + recompensaSinCapturas + recompensaJaula + recompensaMuro + corteLineas + recompensaCasiMate - permiteCapturaPeligrosa;
+  };
+
+  const evaluarRespuestaZorroDespuesDeGallina = (nextHens = hens, nextFoxes = foxes) => {
+    const respuestas = nextFoxes.flatMap((zorro) =>
+      getCaptureMovesForFox(zorro, nextHens, nextFoxes).map((captura) => ({ ...captura, from: zorro }))
+    );
+
+    if (respuestas.length === 0) return 0;
+
+    const peorRespuesta = respuestas.reduce((peor, captura) => {
+      const hensDespuesCaptura = nextHens.filter((pos) => pos !== captura.over);
+      const foxesDespuesCaptura = nextFoxes.map((pos) => (pos === captura.from ? captura.to : pos));
+      const combo = contarCapturasFuturasParaZorro(captura.to, hensDespuesCaptura, foxesDespuesCaptura);
+      const gallinaCapturadaEnGallinero = farmCells.includes(captura.over) ? 1 : 0;
+      const valor = 44 + combo * 38 + gallinaCapturadaEnGallinero * 24;
+      return Math.max(peor, valor);
+    }, 0);
+
+    return peorRespuesta;
+  };
+
   const obtenerMovimientoComputadoraGallina = () => {
     const movimientos = hens.flatMap((gallina) =>
       connections[gallina]
@@ -771,18 +912,58 @@ export default function ZorroGallinaPrototype() {
       const penalizacionBucle = (reversaInmediata ? 10 : 0) + (mismoVaivenRepetido ? 25 : 0);
       const ajusteFinalValido = origen?.row === 0 && origen?.col === 3 && destino?.row === 0 ? 2 : 0;
       const quedaEnPeligro = gallinaQuedaEnPeligro(movimiento.to, nextHens, foxes);
-      const bloqueaZorro = checkZorrosAtrapadosSimulado(foxes, nextHens) ? 90 : 0;
+      const bloqueaZorro = checkZorrosAtrapadosSimulado(foxes, nextHens) ? 160 : 0;
       const gallinasEnGallineroDespues = nextHens.filter((pos) => farmCells.includes(pos)).length;
       const cierreGallineroExperto = gallinasEnGallineroDespues * (pcEsLeyenda ? 9.2 : pcEsExperta ? 5 : 3.5);
       const destinoCercaCentro = destino ? Math.max(0, 3 - Math.abs(destino.col - 3)) : 0;
-      const sacrificioTactico = quedaEnPeligro && avance >= 0 && destinoCercaCentro >= 2 ? (pcEsLeyenda ? 76 : pcEsExperta ? 42 : 24) : 0;
-      const seguridad = quedaEnPeligro ? (sacrificioTactico ? -4 : pcEsLeyenda ? -62 : pcEsExperta ? -38 : -24) : 10;
+
+      // Mejora central:
+      // las gallinas ya no solo avanzan; ahora intentan reducir movilidad,
+      // cortar escapes, formar muros y preparar jaulas contra los zorros.
+      const valorTrampa = evaluarTrampaGallinas(movimiento, nextHens, foxes);
+      const castigoRespuestaZorro = evaluarRespuestaZorroDespuesDeGallina(nextHens, foxes) * (pcEsLeyenda ? 0.72 : pcEsExperta ? 0.9 : 1.1);
+      const movilidadZorrosDespues = movilidadTotalZorrosEnEstado(nextHens, foxes);
+      const presiónPorEncierro = Math.max(0, 8 - movilidadZorrosDespues) * (pcEsLeyenda ? 18 : pcEsExperta ? 11 : 6);
+      const protegeGallinero = destino && destino.row <= 2 ? (pcEsLeyenda ? 18 : pcEsExperta ? 12 : 7) : 0;
+      const noRomperMuro = origen && origen.row <= 2 && !farmCells.includes(movimiento.to) ? -14 : 0;
+
+      // Sacrificio inteligente:
+      // se permite poner una gallina en riesgo si esa jugada encierra fuerte al zorro,
+      // reduce capturas o deja casi sin salidas. En dificultad baja se castiga más.
+      const sacrificioTactico = quedaEnPeligro && avance >= 0 && destinoCercaCentro >= 2
+        ? (pcEsLeyenda ? 76 : pcEsExperta ? 42 : 24)
+        : 0;
+      const sacrificioCompensado = quedaEnPeligro && valorTrampa > (pcEsLeyenda ? 55 : pcEsExperta ? 80 : 120)
+        ? (pcEsLeyenda ? 44 : pcEsExperta ? 22 : 6)
+        : 0;
+      const seguridad = quedaEnPeligro
+        ? (sacrificioTactico || sacrificioCompensado ? -5 : pcEsLeyenda ? -62 : pcEsExperta ? -38 : -24)
+        : 10;
+
       const presionSobreZorros = foxes.reduce((total, zorro) => total + Math.max(0, 5 - distanciaAZonaGallinero(zorro)), 0) * (pcEsLeyenda ? 4.9 : pcEsExperta ? 2.5 : 1.5);
+      const agresividadNivel = pcEsLeyenda ? 1.35 : pcEsExperta ? 1.0 : 0.72;
       const azar = Math.random() * (pcEsLeyenda ? 0.01 : pcEsExperta ? 0.025 : 0.08);
 
       return {
         ...movimiento,
-        score: entraGallinero + avance * (pcEsLeyenda ? 12.5 : pcEsExperta ? 8 : 6.5) + centro + ajusteFinalValido + seguridad + sacrificioTactico + bloqueaZorro + cierreGallineroExperto + presionSobreZorros - penalizacionBucle + azar,
+        score:
+          entraGallinero +
+          avance * (pcEsLeyenda ? 12.5 : pcEsExperta ? 8 : 6.5) +
+          centro +
+          ajusteFinalValido +
+          seguridad +
+          sacrificioTactico +
+          sacrificioCompensado +
+          bloqueaZorro +
+          cierreGallineroExperto +
+          presionSobreZorros +
+          valorTrampa * agresividadNivel +
+          presiónPorEncierro +
+          protegeGallinero +
+          noRomperMuro -
+          castigoRespuestaZorro -
+          penalizacionBucle +
+          azar,
       };
     });
 
