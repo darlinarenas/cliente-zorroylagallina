@@ -15,25 +15,27 @@ export default function ZorroGallinaPrototype() {
   const [capturingFox, setCapturingFox] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [panelMovil, setPanelMovil] = useState(null);
-  const [dificultadPc, setDificultadPc] = useState("medio");
+  const [dificultadPc, setDificultadPc] = useState("dificil");
   const [efectoCaptura, setEfectoCaptura] = useState(null);
   const [logroActivo, setLogroActivo] = useState(null);
   const [logrosDesbloqueados, setLogrosDesbloqueados] = useState([]);
   const logroTimerRef = useRef(null);
+  const ambienteTimerRef = useRef(null);
 
 
   const nivelesDificultad = {
-    facil: { nombre: "Fácil", detalle: "PC más relajada", badge: "🟢" },
-    medio: { nombre: "Medio", detalle: "PC equilibrada", badge: "🟡" },
-    dificil: { nombre: "Difícil", detalle: "PC más agresiva", badge: "🔴" },
-    experto: { nombre: "Experto", detalle: "PC piensa mejor y castiga errores", badge: "🧠" },
+    dificil: { nombre: "Difícil", detalle: "IA táctica: protege zona y castiga errores básicos", badge: "🔴" },
+    experto: { nombre: "Experto", detalle: "IA técnica: calcula trampas, sacrificios y encierros", badge: "🧠" },
+    leyenda: { nombre: "Leyenda", detalle: "IA salvaje: más precisa, menos predecible y más intensa", badge: "👑" },
   };
 
-  // Helper central para no tocar cada regla manualmente:
-  // "difícil" y "experto" comparten la base agresiva, pero experto
-  // suma más cálculo, menos azar y más prevención de trampas.
-  const pcEsFuerte = dificultadPc === "dificil" || dificultadPc === "experto";
-  const pcEsExperta = dificultadPc === "experto";
+  // Dificultades premium:
+  // - Difícil: ahora es el punto de entrada, equivalente a una PC seria.
+  // - Experto: cuida mejor el gallinero, evita alejarse sin beneficio y lee sacrificios.
+  // - Leyenda: usa la evaluación más estricta, reduce el azar y juega con presión territorial.
+  const pcEsFuerte = true;
+  const pcEsExperta = dificultadPc === "experto" || dificultadPc === "leyenda";
+  const pcEsLeyenda = dificultadPc === "leyenda";
 
   const crearSonido = (tipo) => {
     if (!soundEnabled) return;
@@ -115,8 +117,15 @@ export default function ZorroGallinaPrototype() {
     }
 
     if (tipo === "suspenso") {
-      tocarTono({ frecuencia: 220, duracion: 0.52, tipoOsc: "triangle", volumen: 0.045 });
-      tocarTono({ frecuencia: 180, inicio: 0.14, duracion: 0.48, tipoOsc: "sine", volumen: 0.035 });
+      tocarTono({ frecuencia: 220, duracion: 0.52, tipoOsc: "triangle", volumen: 0.032 });
+      tocarTono({ frecuencia: 180, inicio: 0.14, duracion: 0.48, tipoOsc: "sine", volumen: 0.026 });
+      return;
+    }
+
+    if (tipo === "tensionFinal") {
+      tocarTono({ frecuencia: 110, duracion: 0.65, tipoOsc: "triangle", volumen: 0.052 });
+      tocarTono({ frecuencia: 84, inicio: 0.12, duracion: 0.72, tipoOsc: "sine", volumen: 0.045 });
+      tocarRuido({ inicio: 0.08, duracion: 0.35, volumen: 0.026, filtro: 480 });
       return;
     }
 
@@ -146,7 +155,7 @@ export default function ZorroGallinaPrototype() {
   const activarSonidos = () => {
     setSoundEnabled(true);
     setTimeout(() => crearSonido("mover"), 0);
-    setMessage("Sonidos activados. Ahora escucharás rugidos, gallinas asustadas, capturas, zorro soplao y victoria.");
+    setMessage("Sonidos activados. Ahora escucharás ambiente de suspenso, rugidos, gallinas asustadas, capturas, zorro soplao y victoria.");
   };
 
   const nodes = useMemo(() => {
@@ -284,6 +293,24 @@ export default function ZorroGallinaPrototype() {
     setTimeout(() => setEfectoCaptura(null), 850);
   };
 
+  const obtenerTituloVictoria = (bando) => {
+    const titulosZorro = {
+      dificil: "Zorro Salvaje",
+      experto: "Zorro Domador",
+      leyenda: "Zorro Leyenda",
+    };
+
+    const titulosGallina = {
+      dificil: "Gallina Brava",
+      experto: "Gallina Táctica",
+      leyenda: "Gallina Leyenda",
+    };
+
+    return bando === "zorros"
+      ? titulosZorro[dificultadPc] || "Zorro Salvaje"
+      : titulosGallina[dificultadPc] || "Gallina Brava";
+  };
+
   const desbloquearLogro = (id) => {
     const logros = {
       primera_captura: {
@@ -307,14 +334,14 @@ export default function ZorroGallinaPrototype() {
         icono: "🌾",
       },
       victoria_gallinas: {
-        titulo: "Reinas del gallinero",
-        detalle: "Las gallinas dominaron la granja.",
+        titulo: obtenerTituloVictoria("gallinas"),
+        detalle: "Título desbloqueado para las gallinas por dominar la partida.",
         icono: "🐔",
       },
       victoria_zorros: {
-        titulo: "Cacería completa",
-        detalle: "Los zorros impusieron respeto.",
-        icono: "👑",
+        titulo: obtenerTituloVictoria("zorros"),
+        detalle: "Título desbloqueado para los zorros por imponer su cacería.",
+        icono: "🦊",
       },
     };
 
@@ -456,34 +483,34 @@ export default function ZorroGallinaPrototype() {
     ].slice(0, 8);
   };
 
-  // Dificultad de la PC:
-  // - Fácil: usa más azar y no siempre escoge la opción más fuerte.
-  // - Medio: mantiene la lógica equilibrada que ya funcionaba.
-  // - Difícil: prioriza cadenas de captura, avance útil, seguridad y presión sobre el rival.
-  // - Experto: escoge casi siempre la mejor jugada, reduce el azar, busca capturas futuras,
-  //   bloquea mejor el gallinero y evita regalar posiciones.
+  // Dificultad premium de la PC:
+  // - Difícil: ya no es fácil; escoge entre buenas jugadas para sentirse humana.
+  // - Experto: casi siempre toma la mejor jugada evaluada.
+  // - Leyenda: toma la mejor jugada y penaliza con más fuerza los errores posicionales.
   const elegirMovimientoPorDificultad = (movimientosEvaluados) => {
     if (!movimientosEvaluados.length) return null;
     const ordenados = [...movimientosEvaluados].sort((a, b) => b.score - a.score);
 
-    if (dificultadPc === "facil") {
-      const mitadDebil = ordenados.slice(Math.max(0, Math.floor(ordenados.length / 2)));
-      const grupo = mitadDebil.length ? mitadDebil : ordenados;
-      return grupo[Math.floor(Math.random() * grupo.length)];
-    }
-
-    if (pcEsExperta) {
+    if (pcEsLeyenda || pcEsExperta) {
       return ordenados[0];
     }
 
-    if (dificultadPc === "dificil") {
-      const candidatos = ordenados.slice(0, Math.min(2, ordenados.length));
-      return candidatos[Math.floor(Math.random() * candidatos.length)];
-    }
-
-    const limite = Math.min(3, ordenados.length);
-    const candidatos = ordenados.slice(0, limite);
+    const candidatos = ordenados.slice(0, Math.min(2, ordenados.length));
     return candidatos[Math.floor(Math.random() * candidatos.length)];
+  };
+
+  const distanciaAZonaGallinero = (id) => {
+    const nodo = nodeById[id];
+    if (!nodo) return 99;
+    // La zona que el zorro debe cuidar está arriba/centro.
+    // Mientras más se vaya hacia abajo o a los extremos sin capturar, peor se evalúa.
+    return Math.abs(nodo.col - 3) + Math.max(0, nodo.row - 2) * 1.65 + Math.max(0, 2 - nodo.row) * 0.25;
+  };
+
+  const movilidadZorroEnEstado = (foxId, hensList = hens, foxesList = foxes) => {
+    const capturas = getCaptureMovesForFox(foxId, hensList, foxesList).length;
+    const normales = connections[foxId]?.filter((to) => !isOccupiedInState(to, hensList, foxesList)).length || 0;
+    return capturas * 2 + normales;
   };
 
   const contarCapturasFuturasParaZorro = (foxId, hensList = hens, foxesList = foxes) => {
@@ -509,10 +536,15 @@ export default function ZorroGallinaPrototype() {
         const nextHens = hens.filter((pos) => pos !== movimiento.over);
         const siguientes = contarCapturasFuturasParaZorro(movimiento.to, nextHens, nextFoxes);
         const destino = nodeById[movimiento.to];
-        const centro = destino ? -Math.abs(destino.col - 3) * (pcEsFuerte ? (pcEsExperta ? 0.85 : 0.55) : 0.2) : 0;
-        const presion = destino ? destino.row * 0.6 : 0;
-        const bonusDificil = pcEsFuerte ? siguientes * (pcEsExperta ? 46 : 32) + presion * (pcEsExperta ? 1.4 : 1) + centro : siguientes * 20;
-        return { ...movimiento, score: 100 + bonusDificil + Math.random() * (pcEsExperta ? 0.03 : pcEsFuerte ? 0.08 : 0.45) };
+        const centro = destino ? -Math.abs(destino.col - 3) * (pcEsLeyenda ? 2.2 : pcEsExperta ? 1.55 : 1.05) : 0;
+        const distanciaZona = distanciaAZonaGallinero(movimiento.to);
+        const movilidadDespues = movilidadZorroEnEstado(movimiento.to, nextHens, nextFoxes);
+        const zorroQuedaAtrapado = movilidadDespues <= 0 ? 1 : 0;
+        const defensaGallinero = -distanciaZona * (pcEsLeyenda ? 16 : pcEsExperta ? 12 : 8);
+        const combo = siguientes * (pcEsLeyenda ? 62 : pcEsExperta ? 50 : 36);
+        const supervivencia = movilidadDespues * (pcEsLeyenda ? 9 : pcEsExperta ? 7 : 4) - zorroQuedaAtrapado * 180;
+        const azar = Math.random() * (pcEsLeyenda ? 0.01 : pcEsExperta ? 0.025 : 0.08);
+        return { ...movimiento, score: 120 + combo + defensaGallinero + supervivencia + centro + azar };
       });
 
       return elegirMovimientoPorDificultad(evaluadas);
@@ -530,23 +562,29 @@ export default function ZorroGallinaPrototype() {
       const origen = nodeById[movimiento.from];
       const destino = nodeById[movimiento.to];
       const avanceHaciaGallinas = destino && origen ? destino.row - origen.row : 0;
-      const opcionesDesdeDestino = connections[movimiento.to]?.filter((to) => !isOccupied(to)).length || 0;
       const { reversaInmediata, mismoVaivenRepetido } = esMovimientoPcRepetido(movimiento);
 
       const nextFoxes = foxes.map((pos) => (pos === movimiento.from ? movimiento.to : pos));
       const capturasFuturas = contarCapturasFuturasParaZorro(movimiento.to, hens, nextFoxes);
-      const centro = destino ? -Math.abs(destino.col - 3) * 0.25 : 0;
+      const distanciaZona = distanciaAZonaGallinero(movimiento.to);
+      const distanciaZonaAntes = distanciaAZonaGallinero(movimiento.from);
+      const seAlejaDeZona = Math.max(0, distanciaZona - distanciaZonaAntes);
+      const movilidadDespues = movilidadZorroEnEstado(movimiento.to, hens, nextFoxes);
+      const centro = destino ? -Math.abs(destino.col - 3) * (pcEsLeyenda ? 2.4 : pcEsExperta ? 1.7 : 1.1) : 0;
 
-      // Corrección anti-bucle zorro + dificultad:
-      // En difícil, la PC busca quedar cerca de nuevas capturas y evita perder movilidad.
-      const penalizacionBucle = (reversaInmediata ? 8 : 0) + (mismoVaivenRepetido ? 20 : 0);
-      const movilidad = opcionesDesdeDestino * (pcEsFuerte ? (pcEsExperta ? 1.55 : 1.15) : 0.65);
-      const presionCaptura = pcEsFuerte ? capturasFuturas * (pcEsExperta ? 34 : 22) : capturasFuturas * 8;
-      const azar = pcEsExperta ? Math.random() * 0.03 : pcEsFuerte ? Math.random() * 0.08 : Math.random() * 0.35;
+      // IA táctica del zorro:
+      // el zorro no debe irse del gallinero como loco. Solo se aleja si gana captura, movilidad o presión real.
+      const penalizacionBucle = (reversaInmediata ? 14 : 0) + (mismoVaivenRepetido ? 34 : 0);
+      const defensaGallinero = -distanciaZona * (pcEsLeyenda ? 18 : pcEsExperta ? 13 : 9);
+      const castigoAlejarse = -seAlejaDeZona * (pcEsLeyenda ? 30 : pcEsExperta ? 22 : 14);
+      const movilidad = movilidadDespues * (pcEsLeyenda ? 8 : pcEsExperta ? 6 : 4);
+      const presionCaptura = capturasFuturas * (pcEsLeyenda ? 48 : pcEsExperta ? 36 : 24);
+      const avanceControlado = avanceHaciaGallinas > 0 ? avanceHaciaGallinas * (capturasFuturas ? 4 : -8) : Math.abs(avanceHaciaGallinas) * 4;
+      const azar = Math.random() * (pcEsLeyenda ? 0.01 : pcEsExperta ? 0.025 : 0.08);
 
       return {
         ...movimiento,
-        score: avanceHaciaGallinas + movilidad + presionCaptura + centro - penalizacionBucle + azar,
+        score: defensaGallinero + castigoAlejarse + movilidad + presionCaptura + centro + avanceControlado - penalizacionBucle + azar,
       };
     });
 
@@ -601,15 +639,18 @@ export default function ZorroGallinaPrototype() {
       const penalizacionBucle = (reversaInmediata ? 10 : 0) + (mismoVaivenRepetido ? 25 : 0);
       const ajusteFinalValido = origen?.row === 0 && origen?.col === 3 && destino?.row === 0 ? 2 : 0;
       const quedaEnPeligro = gallinaQuedaEnPeligro(movimiento.to, nextHens, foxes);
-      const bloqueaZorro = checkZorrosAtrapadosSimulado(foxes, nextHens) ? 45 : 0;
+      const bloqueaZorro = checkZorrosAtrapadosSimulado(foxes, nextHens) ? 90 : 0;
       const gallinasEnGallineroDespues = nextHens.filter((pos) => farmCells.includes(pos)).length;
-      const cierreGallineroExperto = pcEsExperta ? gallinasEnGallineroDespues * 3.5 : 0;
-      const seguridad = pcEsExperta && quedaEnPeligro ? -40 : pcEsFuerte && quedaEnPeligro ? -26 : quedaEnPeligro ? -8 : 5;
-      const azar = pcEsExperta ? Math.random() * 0.03 : pcEsFuerte ? Math.random() * 0.08 : Math.random() * 0.35;
+      const cierreGallineroExperto = gallinasEnGallineroDespues * (pcEsLeyenda ? 6.5 : pcEsExperta ? 5 : 3.5);
+      const destinoCercaCentro = destino ? Math.max(0, 3 - Math.abs(destino.col - 3)) : 0;
+      const sacrificioTactico = quedaEnPeligro && avance >= 0 && destinoCercaCentro >= 2 ? (pcEsLeyenda ? 58 : pcEsExperta ? 42 : 24) : 0;
+      const seguridad = quedaEnPeligro ? (sacrificioTactico ? -8 : pcEsLeyenda ? -48 : pcEsExperta ? -38 : -24) : 10;
+      const presionSobreZorros = foxes.reduce((total, zorro) => total + Math.max(0, 5 - distanciaAZonaGallinero(zorro)), 0) * (pcEsLeyenda ? 3.2 : pcEsExperta ? 2.5 : 1.5);
+      const azar = Math.random() * (pcEsLeyenda ? 0.01 : pcEsExperta ? 0.025 : 0.08);
 
       return {
         ...movimiento,
-        score: entraGallinero + avance * (pcEsExperta ? 7.5 : pcEsFuerte ? 6 : 4) + centro + ajusteFinalValido + seguridad + bloqueaZorro + cierreGallineroExperto - penalizacionBucle + azar,
+        score: entraGallinero + avance * (pcEsLeyenda ? 9.5 : pcEsExperta ? 8 : 6.5) + centro + ajusteFinalValido + seguridad + sacrificioTactico + bloqueaZorro + cierreGallineroExperto + presionSobreZorros - penalizacionBucle + azar,
       };
     });
 
@@ -932,6 +973,33 @@ export default function ZorroGallinaPrototype() {
     return () => clearTimeout(timer);
   }, [turn, modoJuego, hens, foxes, capturingFox, winner, forcedPreview, juegoIniciado, pcMovimientoPreview]);
 
+  const hensInFarm = hens.filter((pos) => farmCells.includes(pos)).length;
+  const gallinasRestantes = hens.length;
+  const estadoCriticoGallinas = juegoIniciado && !winner && (hensEaten >= 9 || gallinasRestantes <= 11);
+  const estadoCriticoZorro = juegoIniciado && !winner && foxes.length === 1;
+  const estadoFinalIntenso = estadoCriticoGallinas || estadoCriticoZorro || hensInFarm >= 7;
+
+  useEffect(() => {
+    if (ambienteTimerRef.current) {
+      clearInterval(ambienteTimerRef.current);
+      ambienteTimerRef.current = null;
+    }
+
+    if (!soundEnabled || !juegoIniciado || winner) return;
+
+    crearSonido(estadoFinalIntenso ? "tensionFinal" : "suspenso");
+    ambienteTimerRef.current = setInterval(() => {
+      crearSonido(estadoFinalIntenso ? "tensionFinal" : "suspenso");
+    }, estadoFinalIntenso ? 3800 : 6200);
+
+    return () => {
+      if (ambienteTimerRef.current) {
+        clearInterval(ambienteTimerRef.current);
+        ambienteTimerRef.current = null;
+      }
+    };
+  }, [soundEnabled, juegoIniciado, winner, estadoFinalIntenso]);
+
   const resetGame = () => {
     setTurn("gallinas");
     setSelected(null);
@@ -1013,9 +1081,6 @@ export default function ZorroGallinaPrototype() {
     setMessage(modoJuego === "dos_jugadores" ? "Partida iniciada: juegan las gallinas." : "Partida iniciada. Juegan las gallinas primero.");
   };
 
-  const hensInFarm = hens.filter((pos) => farmCells.includes(pos)).length;
-  const gallinasRestantes = hens.length;
-
   const PanelMovilContenido = () => {
     if (!panelMovil) return null;
 
@@ -1039,7 +1104,7 @@ export default function ZorroGallinaPrototype() {
 
           <div className="rounded-2xl bg-black/25 border border-white/10 p-3">
             <p className="text-xs font-black uppercase tracking-widest text-white/45 mb-2">Complejidad PC</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {Object.entries(nivelesDificultad).map(([key, nivel]) => (
                 <button
                   key={key}
@@ -1316,7 +1381,7 @@ export default function ZorroGallinaPrototype() {
             </button>
           </div>
 
-          <div className="mt-3 grid grid-cols-4 gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             {Object.entries(nivelesDificultad).map(([key, nivel]) => (
               <button
                 key={key}
@@ -1488,6 +1553,16 @@ export default function ZorroGallinaPrototype() {
             <MovimientoVisible />
             <EfectoCapturaVisual />
 
+            {estadoFinalIntenso && !winner && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`absolute left-1/2 top-4 z-[42] -translate-x-1/2 rounded-2xl px-4 py-2 text-xs sm:text-sm font-black border shadow-[0_0_28px_rgba(0,0,0,.45)] ${tableroInvertido ? "-rotate-180" : "rotate-0"} ${estadoCriticoGallinas ? "bg-red-600/90 border-red-200 text-white" : "bg-amber-300/90 border-amber-100 text-black"}`}
+              >
+                {estadoCriticoGallinas ? "⚠️ Las gallinas están temblando: quedan pocas" : estadoCriticoZorro ? "⚠️ Queda un solo zorro: final peligroso" : "⚠️ El gallinero está casi tomado"}
+              </motion.div>
+            )}
+
             {nodes.map((n) => {
               const piece = pieceAt(n.id);
               const isSelected = selected === n.id;
@@ -1499,24 +1574,26 @@ export default function ZorroGallinaPrototype() {
               const isTurnPiece = !winner && !forcedPreview && juegoIniciado && ((turn === "gallinas" && piece === "gallina") || (turn === "zorros" && piece === "zorro"));
               const isPcFrom = pcMovimientoPreview?.from === n.id;
               const isPcTo = pcMovimientoPreview?.to === n.id;
+              const gallinaEnPeligroFinal = piece === "gallina" && estadoCriticoGallinas;
+              const zorroEnAlertaFinal = piece === "zorro" && estadoCriticoZorro;
 
               return (
                 <motion.button
                   key={n.id}
                   whileTap={{ scale: 0.94 }}
-                  animate={isForcedFox ? { x: [0, 12, 0], scale: [1, 1.18, 1] } : isTurnPiece ? { x: 0, scale: [1, 1.07, 1] } : { x: 0, scale: 1 }}
-                  transition={isForcedFox ? { duration: 0.8, repeat: 1 } : isTurnPiece ? { duration: 1.25, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
+                  animate={isForcedFox ? { x: [0, 12, 0], scale: [1, 1.18, 1] } : gallinaEnPeligroFinal ? { x: [-1.5, 1.5, -1, 1, 0], scale: [1, 1.08, 1] } : zorroEnAlertaFinal ? { scale: [1, 1.12, 1], rotate: [0, -2, 2, 0] } : isTurnPiece ? { x: 0, scale: [1, 1.07, 1] } : { x: 0, scale: 1 }}
+                  transition={isForcedFox ? { duration: 0.8, repeat: 1 } : gallinaEnPeligroFinal ? { duration: 0.38, repeat: Infinity, ease: "easeInOut" } : zorroEnAlertaFinal ? { duration: 0.9, repeat: Infinity, ease: "easeInOut" } : isTurnPiece ? { duration: 1.25, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
                   drag={puedeArrastrarFicha(n.id)}
                   dragSnapToOrigin
                   dragMomentum={false}
                   onDragStart={() => iniciarArrastre(n.id)}
                   onDragEnd={(_, info) => terminarArrastre(info)}
                   onClick={() => selectOrMove(n.id)}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center font-black transition-all z-20 ${tableroInvertido ? "-rotate-180" : "rotate-0"} ${isSelected ? "ring-4 ring-yellow-300 scale-110 z-30" : ""} ${isValidTarget || isForcedLanding ? "ring-4 ring-lime-300 z-30" : ""} ${isForcedHen ? "ring-4 ring-red-500 z-30" : ""} ${isPcFrom ? "ring-4 ring-sky-300 z-40" : ""} ${isPcTo ? "ring-4 ring-cyan-300 z-40" : ""} ${isTurnPiece ? turn === "gallinas" ? "drop-shadow-[0_0_18px_rgba(190,242,100,.75)]" : "drop-shadow-[0_0_20px_rgba(251,146,60,.85)]" : ""}`}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-[8.4%] h-[8.4%] sm:w-[7.4%] sm:h-[7.4%] rounded-full flex items-center justify-center font-black transition-all z-20 ${tableroInvertido ? "-rotate-180" : "rotate-0"} ${isSelected ? "ring-4 ring-yellow-300 scale-110 z-30" : ""} ${isValidTarget || isForcedLanding ? "ring-4 ring-lime-300 z-30" : ""} ${isForcedHen ? "ring-4 ring-red-500 z-30" : ""} ${isPcFrom ? "ring-4 ring-sky-300 z-40" : ""} ${isPcTo ? "ring-4 ring-cyan-300 z-40" : ""} ${gallinaEnPeligroFinal ? "ring-4 ring-red-400 z-40 drop-shadow-[0_0_24px_rgba(248,113,113,.9)]" : ""} ${zorroEnAlertaFinal ? "ring-4 ring-amber-200 z-40 drop-shadow-[0_0_28px_rgba(251,191,36,.9)]" : ""} ${isTurnPiece ? turn === "gallinas" ? "drop-shadow-[0_0_18px_rgba(190,242,100,.75)]" : "drop-shadow-[0_0_20px_rgba(251,146,60,.85)]" : ""}`}
                   style={{ left: `${n.x}%`, top: `${n.y}%` }}
                   title={`Posición ${n.id}`}
                 >
-                  <span className={`absolute inset-0 rounded-full border-[3px] shadow-[0_7px_18px_rgba(0,0,0,.6)] ${isPcTo ? "bg-cyan-300 border-cyan-900 animate-pulse shadow-[0_0_30px_rgba(103,232,249,.85)]" : isPcFrom ? "bg-sky-300 border-sky-900 shadow-[0_0_28px_rgba(125,211,252,.8)]" : isValidTarget || isForcedLanding ? "bg-lime-300 border-lime-900 animate-pulse shadow-[0_0_25px_rgba(190,242,100,.8)]" : isTurnPiece ? turn === "gallinas" ? "bg-[#d6a35c] border-lime-300 shadow-[0_0_18px_rgba(190,242,100,.5)]" : "bg-[#d6a35c] border-orange-300 shadow-[0_0_20px_rgba(251,146,60,.6)]" : isFarm ? "bg-[#d59b57] border-[#4a2a18]" : "bg-[#c58a4a] border-[#4a2a18]"}`} />
+                  <span className={`absolute inset-0 rounded-full border-[3px] shadow-[0_7px_18px_rgba(0,0,0,.6)] ${isPcTo ? "bg-cyan-300 border-cyan-900 animate-pulse shadow-[0_0_30px_rgba(103,232,249,.85)]" : isPcFrom ? "bg-sky-300 border-sky-900 shadow-[0_0_28px_rgba(125,211,252,.8)]" : isValidTarget || isForcedLanding ? "bg-lime-300 border-lime-900 animate-pulse shadow-[0_0_25px_rgba(190,242,100,.8)]" : gallinaEnPeligroFinal ? "bg-red-300 border-red-900 animate-pulse shadow-[0_0_32px_rgba(248,113,113,.85)]" : zorroEnAlertaFinal ? "bg-amber-200 border-orange-900 animate-pulse shadow-[0_0_34px_rgba(251,191,36,.85)]" : isTurnPiece ? turn === "gallinas" ? "bg-[#d6a35c] border-lime-300 shadow-[0_0_18px_rgba(190,242,100,.5)]" : "bg-[#d6a35c] border-orange-300 shadow-[0_0_20px_rgba(251,146,60,.6)]" : isFarm ? "bg-[#d59b57] border-[#4a2a18]" : "bg-[#c58a4a] border-[#4a2a18]"}`} />
                   {!piece && null}
                   {piece === "zorro" && <span className="relative text-2xl sm:text-4xl drop-shadow-lg">🦊</span>}
                   {piece === "gallina" && <span className="relative text-2xl sm:text-4xl drop-shadow-lg">🐔</span>}
@@ -1532,8 +1609,9 @@ export default function ZorroGallinaPrototype() {
               >
                 <motion.div initial={{ scale: 0.82, y: 20 }} animate={{ scale: 1, y: 0 }} className={`rounded-[2rem] bg-gradient-to-br from-amber-300 to-amber-600 text-black p-8 text-center shadow-2xl border-4 border-white/50 max-w-md transition-transform duration-700 ${tableroInvertido ? "-rotate-180" : "rotate-0"}`}>
                   <div className="text-6xl mb-3">{winner === "gallinas" ? "🐔" : "🦊"}</div>
-                  <h2 className="text-3xl font-black">Ganaron las {winner}</h2>
-                  <p className="mt-2 font-bold">{winner === "gallinas" ? "Llenaron el gallinero o soplaron a los dos zorros." : "Se comieron 12 gallinas."}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.28em] text-black/55 mb-2">Título desbloqueado</p>
+                  <h2 className="text-3xl font-black">{obtenerTituloVictoria(winner)}</h2>
+                  <p className="mt-2 font-bold">{winner === "gallinas" ? "Las gallinas dominaron el gallinero." : "Los zorros completaron la cacería."}</p>
                   <button onClick={resetGame} className="mt-5 rounded-2xl bg-black text-white font-black px-6 py-3">Nueva partida</button>
                 </motion.div>
               </motion.div>
@@ -1568,7 +1646,7 @@ export default function ZorroGallinaPrototype() {
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
                 <h3 className="font-black text-white text-sm sm:text-base">Modo de partida</h3>
-                <p className="hidden sm:block text-xs text-white/45 mt-1">Puedes jugar local o contra una computadora simple/intermedia.</p>
+                <p className="hidden sm:block text-xs text-white/45 mt-1">Puedes jugar local o contra una computadora táctica, experta o leyenda.</p>
               </div>
               <span className="rounded-full bg-lime-300/15 border border-lime-300/25 px-3 py-1 text-[11px] font-black text-lime-200 whitespace-nowrap">
                 {!juegoIniciado ? "LISTO" : modoJuego === "dos_jugadores" ? "LOCAL" : "VS PC"}
@@ -1601,9 +1679,9 @@ export default function ZorroGallinaPrototype() {
             <div className="mt-3 rounded-2xl bg-black/25 border border-white/10 p-3">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <p className="text-xs font-black uppercase tracking-widest text-white/45">Complejidad PC</p>
-                <span className="text-xs text-amber-100/70">{nivelesDificultad[dificultadPc].detalle}</span>
+                <span className="text-xs text-amber-100/70">{nivelesDificultad[dificultadPc]?.detalle}</span>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {Object.entries(nivelesDificultad).map(([key, nivel]) => (
                   <button
                     key={key}
@@ -1623,7 +1701,7 @@ export default function ZorroGallinaPrototype() {
               {juegoIniciado ? "Partida en curso" : "Comenzar"}
             </button>
 
-            <p className="mt-3 text-xs text-white/45">La PC ahora tiene 3 niveles: fácil para practicar, medio equilibrado y difícil más agresivo.</p>
+            <p className="mt-3 text-xs text-white/45">La PC ahora tiene 3 niveles libres: Difícil, Experto y Leyenda. Los títulos se desbloquean al ganar.</p>
           </div>
 
           {warningOneFox && !winner && (
@@ -1752,6 +1830,8 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
+
 
 
 
