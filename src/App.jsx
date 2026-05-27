@@ -129,24 +129,60 @@ export default function ZorroGallinaPrototype() {
     }
 
     if (tipo === "suspenso" || tipo === "suspensoProfundo") {
-      // Ambiente de suspenso mejorado:
-      // más grave, más largo y con pulso oscuro para que se sienta presente,
-      // pero sin tapar los sonidos de movimiento, captura o victoria.
-      tocarTono({ frecuencia: 86, duracion: 2.85, tipoOsc: "triangle", volumen: 0.082 });
-      tocarTono({ frecuencia: 129, inicio: 0.18, duracion: 2.35, tipoOsc: "sine", volumen: 0.045 });
-      tocarTono({ frecuencia: 172, inicio: 0.62, duracion: 1.85, tipoOsc: "triangle", volumen: 0.032 });
-      tocarRuido({ inicio: 0.08, duracion: 1.85, volumen: 0.038, filtro: 360 });
-      tocarRuido({ inicio: 1.35, duracion: 1.15, volumen: 0.026, filtro: 620 });
+      // Música de suspenso retro táctica:
+      // patrón original estilo videojuego clásico: "tiririri / piripipi",
+      // con notas cortas tipo chip, un bajo suave y suficiente espacio para
+      // que los efectos de captura, movimiento y victoria sigan destacando.
+      const melodia = [
+        { f: 392, t: 0.00 }, { f: 466, t: 0.12 }, { f: 523, t: 0.24 }, { f: 466, t: 0.36 },
+        { f: 392, t: 0.62 }, { f: 466, t: 0.74 }, { f: 587, t: 0.86 }, { f: 523, t: 0.98 },
+        { f: 349, t: 1.28 }, { f: 392, t: 1.40 }, { f: 466, t: 1.52 }, { f: 392, t: 1.64 },
+        { f: 330, t: 1.94 }, { f: 392, t: 2.06 }, { f: 523, t: 2.18 }, { f: 466, t: 2.30 },
+      ];
+
+      melodia.forEach((nota, index) => {
+        tocarTono({
+          frecuencia: nota.f,
+          inicio: nota.t,
+          duracion: index % 4 === 3 ? 0.13 : 0.09,
+          tipoOsc: "square",
+          volumen: 0.036,
+        });
+      });
+
+      // Bajo discreto para que no suene infantil, sino a tensión de estrategia.
+      tocarTono({ frecuencia: 98, inicio: 0.00, duracion: 0.42, tipoOsc: "triangle", volumen: 0.036 });
+      tocarTono({ frecuencia: 123, inicio: 0.86, duracion: 0.36, tipoOsc: "triangle", volumen: 0.032 });
+      tocarTono({ frecuencia: 87, inicio: 1.70, duracion: 0.46, tipoOsc: "triangle", volumen: 0.038 });
+      tocarRuido({ inicio: 0.02, duracion: 0.28, volumen: 0.012, filtro: 950 });
       return;
     }
 
     if (tipo === "tensionFinal") {
-      // Tensión final: pulso más agresivo cuando la partida está por definirse.
-      tocarTono({ frecuencia: 68, duracion: 2.55, tipoOsc: "sawtooth", volumen: 0.07 });
-      tocarTono({ frecuencia: 102, inicio: 0.1, duracion: 2.35, tipoOsc: "triangle", volumen: 0.06 });
-      tocarTono({ frecuencia: 52, inicio: 0.72, duracion: 1.55, tipoOsc: "sine", volumen: 0.07 });
-      tocarRuido({ inicio: 0.05, duracion: 1.4, volumen: 0.045, filtro: 420 });
-      tocarRuido({ inicio: 1.45, duracion: 0.7, volumen: 0.04, filtro: 760 });
+      // Versión final más rápida e intensa:
+      // mantiene el estilo retro, pero acelera el patrón para avisar que la
+      // partida está a punto de definirse.
+      const melodiaFinal = [
+        { f: 523, t: 0.00 }, { f: 587, t: 0.09 }, { f: 622, t: 0.18 }, { f: 587, t: 0.27 },
+        { f: 466, t: 0.45 }, { f: 523, t: 0.54 }, { f: 587, t: 0.63 }, { f: 523, t: 0.72 },
+        { f: 392, t: 0.94 }, { f: 466, t: 1.03 }, { f: 523, t: 1.12 }, { f: 466, t: 1.21 },
+        { f: 349, t: 1.43 }, { f: 392, t: 1.52 }, { f: 466, t: 1.61 }, { f: 523, t: 1.70 },
+      ];
+
+      melodiaFinal.forEach((nota, index) => {
+        tocarTono({
+          frecuencia: nota.f,
+          inicio: nota.t,
+          duracion: index % 4 === 3 ? 0.105 : 0.07,
+          tipoOsc: "square",
+          volumen: 0.044,
+        });
+      });
+
+      tocarTono({ frecuencia: 73, inicio: 0.00, duracion: 0.58, tipoOsc: "sawtooth", volumen: 0.04 });
+      tocarTono({ frecuencia: 98, inicio: 0.70, duracion: 0.5, tipoOsc: "triangle", volumen: 0.038 });
+      tocarTono({ frecuencia: 65, inicio: 1.38, duracion: 0.62, tipoOsc: "sawtooth", volumen: 0.042 });
+      tocarRuido({ inicio: 0.05, duracion: 0.38, volumen: 0.018, filtro: 780 });
       return;
     }
 
@@ -176,7 +212,7 @@ export default function ZorroGallinaPrototype() {
   const activarSonidos = () => {
     setSoundEnabled(true);
     setTimeout(() => crearSonido("mover"), 0);
-    setMessage("Sonidos activados. Ahora escucharás ambiente oscuro de suspenso, tensión final, rugidos, gallinas asustadas, capturas, zorro soplao y victoria.");
+    setMessage("Sonidos activados. Ahora escucharás música retro de suspenso, tensión final, rugidos, gallinas asustadas, capturas, zorro soplao y victoria.");
   };
 
   const nodes = useMemo(() => {
@@ -1042,7 +1078,7 @@ export default function ZorroGallinaPrototype() {
     crearSonido(estadoFinalIntenso ? "tensionFinal" : "suspensoProfundo");
     ambienteTimerRef.current = setInterval(() => {
       crearSonido(estadoFinalIntenso ? "tensionFinal" : "suspensoProfundo");
-    }, estadoFinalIntenso ? 3300 : 4800);
+    }, estadoFinalIntenso ? 2300 : 3200);
 
     return () => {
       if (ambienteTimerRef.current) {
@@ -1903,6 +1939,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
