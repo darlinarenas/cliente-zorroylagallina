@@ -267,7 +267,11 @@ export default function ZorroGallinaPrototype() {
     cell(2, 6), cell(3, 6), cell(4, 6),
   ].filter(Boolean);
 
+  const crearHistorialInicialGallinas = () =>
+    Object.fromEntries(initialHens.map((pos) => [pos, [pos]]));
+
   const [hens, setHens] = useState(initialHens);
+  const [historialGallinas, setHistorialGallinas] = useState(crearHistorialInicialGallinas);
   const [foxes, setFoxes] = useState(initialFoxes);
   const [hensEaten, setHensEaten] = useState(0);
   const [movimientos, setMovimientos] = useState([]);
@@ -420,6 +424,36 @@ export default function ZorroGallinaPrototype() {
       .filter(Boolean);
   };
 
+  const gallinaYaVisito = (from, to, historial = historialGallinas) => {
+    const historialDeGallina = historial?.[from] || [];
+    return historialDeGallina.includes(to);
+  };
+
+  const moverHistorialGallina = (from, to) => {
+    setHistorialGallinas((prev) => {
+      const historialActual = prev?.[from] || [from];
+      const siguiente = { ...prev };
+      delete siguiente[from];
+
+      // Nueva regla del gallinero:
+      // cada gallina recuerda su propio camino. Puede moverse lateralmente
+      // en la línea superior, pero no puede volver a una posición que ya pisó.
+      siguiente[to] = historialActual.includes(to)
+        ? historialActual
+        : [...historialActual, to];
+
+      return siguiente;
+    });
+  };
+
+  const eliminarGallinaDelHistorial = (posicion) => {
+    setHistorialGallinas((prev) => {
+      const siguiente = { ...prev };
+      delete siguiente[posicion];
+      return siguiente;
+    });
+  };
+
   const getValidMoves = (id) => {
     const piece = pieceAt(id);
     if (!piece || winner || forcedPreview) return [];
@@ -431,20 +465,15 @@ export default function ZorroGallinaPrototype() {
           const toNode = nodeById[to];
           if (!fromNode || !toNode || isOccupied(to)) return false;
 
-          // Corrección regla final gallina:
-          // En TODO el tablero la gallina puede avanzar como antes: vertical o lateral,
-          // siempre que no retroceda. La restricción especial solo aplica en la última
-          // línea superior del gallinero: desde el centro puede hacer un último ajuste
-          // lateral hacia una esquina, y al quedar en esquina ya no se mueve más.
-          const estaEnLineaFinalSuperior = fromNode.row === 0 && fromNode.col >= 2 && fromNode.col <= 4;
-          const estaEnEsquinaFinalSuperior = estaEnLineaFinalSuperior && (fromNode.col === 2 || fromNode.col === 4);
-          const estaEnCentroFinalSuperior = estaEnLineaFinalSuperior && fromNode.col === 3;
-          const destinoEsEsquinaFinal = toNode.row === 0 && (toNode.col === 2 || toNode.col === 4);
+          // Nueva regla final de la gallina:
+          // la gallina nunca puede retroceder hacia abajo, pero al llegar a la
+          // línea superior del gallinero sí puede seguir moviéndose lateralmente.
+          // Lo único prohibido es volver a pisar una posición que ESA misma gallina
+          // ya visitó antes durante la partida.
+          if (toNode.row > fromNode.row) return false;
+          if (gallinaYaVisito(id, to)) return false;
 
-          if (estaEnEsquinaFinalSuperior) return false;
-          if (estaEnCentroFinalSuperior) return destinoEsEsquinaFinal;
-
-          return toNode.row <= fromNode.row;
+          return true;
         })
         .map((to) => ({ type: "move", to }));
     }
@@ -631,18 +660,13 @@ export default function ZorroGallinaPrototype() {
           if (!fromNode || !toNode || isOccupied(to)) return false;
 
           // Misma regla que el jugador humano:
-          // en el resto del tablero la gallina puede avanzar o moverse lateralmente
-          // sin retroceder; la regla de quedarse quieta solo aplica en las esquinas
-          // de la línea final superior del gallinero.
-          const estaEnLineaFinalSuperior = fromNode.row === 0 && fromNode.col >= 2 && fromNode.col <= 4;
-          const estaEnEsquinaFinalSuperior = estaEnLineaFinalSuperior && (fromNode.col === 2 || fromNode.col === 4);
-          const estaEnCentroFinalSuperior = estaEnLineaFinalSuperior && fromNode.col === 3;
-          const destinoEsEsquinaFinal = toNode.row === 0 && (toNode.col === 2 || toNode.col === 4);
+          // la gallina no retrocede hacia abajo, puede moverse lateralmente
+          // en la línea superior del gallinero, pero no puede volver a una
+          // posición que esa misma gallina ya pisó.
+          if (toNode.row > fromNode.row) return false;
+          if (gallinaYaVisito(gallina, to)) return false;
 
-          if (estaEnEsquinaFinalSuperior) return false;
-          if (estaEnCentroFinalSuperior) return destinoEsEsquinaFinal;
-
-          return toNode.row <= fromNode.row;
+          return true;
         })
         .map((to) => ({ type: "move", from: gallina, to }))
     );
@@ -905,6 +929,7 @@ export default function ZorroGallinaPrototype() {
       mostrarMovimientoVisible(currentSelected, id, "gallina", "move");
       const nextHens = hens.map((pos) => (pos === currentSelected ? id : pos));
       setHens(nextHens);
+      moverHistorialGallina(currentSelected, id);
       setMovimientos((prev) => [`🐔 Gallina: ${currentSelected} → ${id}`, ...prev].slice(0, 8));
       setSelected(null);
       setCapturingFox(null);
@@ -939,6 +964,7 @@ export default function ZorroGallinaPrototype() {
         const nextEaten = hensEaten + 1;
         setFoxes(nextFoxes);
         setHens(nextHens);
+        eliminarGallinaDelHistorial(move.over);
         setHensEaten(nextEaten);
         setRachaZorro((prev) => prev + 1);
         setRachaGallinas(0);
@@ -1047,6 +1073,7 @@ export default function ZorroGallinaPrototype() {
     setRachaGallinas(0);
     setPartidasJugadas((prev) => prev + 1);
     setHens(initialHens);
+    setHistorialGallinas(crearHistorialInicialGallinas());
     setFoxes(initialFoxes);
     setHensEaten(0);
   };
@@ -1071,6 +1098,7 @@ export default function ZorroGallinaPrototype() {
     setRachaZorro(0);
     setRachaGallinas(0);
     setHens(initialHens);
+    setHistorialGallinas(crearHistorialInicialGallinas());
     setFoxes(initialFoxes);
     setHensEaten(0);
 
@@ -1101,6 +1129,7 @@ export default function ZorroGallinaPrototype() {
     setRachaZorro(0);
     setRachaGallinas(0);
     setHens(initialHens);
+    setHistorialGallinas(crearHistorialInicialGallinas());
     setFoxes(initialFoxes);
     setHensEaten(0);
     setJuegoIniciado(true);
@@ -1212,7 +1241,7 @@ export default function ZorroGallinaPrototype() {
         <h3 className="text-xl font-black text-amber-100">Estado y reglas rápidas</h3>
         <div className="rounded-2xl bg-black/30 p-4 border border-white/10"><p className="text-sm text-amber-100/85 leading-relaxed">{message}</p></div>
         <div className="grid gap-2 text-sm">
-          <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas avanzan sin retroceder; arriba, en la esquina final, se quedan quietas.</div>
+          <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas avanzan sin retroceder; arriba pueden moverse lateralmente sin repetir casillas.</div>
           <div className="rounded-xl bg-black/20 px-3 py-2">🦊 El zorro puede comer varias veces seguidas.</div>
           <div className="rounded-xl bg-black/20 px-3 py-2">💨 Si no come teniendo captura, queda soplao.</div>
           <div className="rounded-xl bg-black/20 px-3 py-2">🚫 Si los zorros no pueden moverse, pierden.</div>
@@ -1851,7 +1880,7 @@ export default function ZorroGallinaPrototype() {
           <div className="hidden sm:block rounded-2xl bg-amber-500/10 border border-amber-400/20 p-4">
             <h3 className="font-bold text-amber-100">Reglas activas</h3>
             <div className="mt-3 grid gap-2 text-sm">
-              <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas avanzan sin retroceder; arriba, en la esquina final, se quedan quietas.</div>
+              <div className="rounded-xl bg-black/20 px-3 py-2">🐔 Las gallinas avanzan sin retroceder; arriba pueden moverse lateralmente sin repetir casillas.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🦊 El zorro puede comer varias veces seguidas.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">🎯 Puedes ocultar la ayuda visual de gallinas y zorros para subir la dificultad.</div>
               <div className="rounded-xl bg-black/20 px-3 py-2">✨ Las fichas del turno actual brillan suavemente.</div>
@@ -1874,6 +1903,7 @@ export default function ZorroGallinaPrototype() {
     </div>
   );
 }
+
 
 
 
